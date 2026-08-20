@@ -174,15 +174,8 @@ char *strcasestr(const char *in, const char *what);
 #endif
 
 #ifndef HAVE_DOSSTR_FUNCS
-
-#ifdef EMSCRIPTEN
 char *strupr(char *n); // from dosstr.c
 char *strlwr(char *n); // from dosstr.c
-#endif
-#ifndef EMSCRIPTEN
-int strupr(char *n); // from dosstr.c
-int strlwr(char *n); // from dosstr.c
-#endif
 #endif
 
 #include <stddef.h> // for size_t
@@ -218,9 +211,6 @@ size_t strlcpy(char *dst, const char *src, size_t siz);
 		#define boolean bool
 	#elif defined(_PS3) // defined(__GNUC__)?
 		#include <stdbool.h>  //_bool_true_false_are_defined?
-		#define boolean bool
-	#elif defined(__EMSCRIPTEN__)
-		#include <stdbool.h>
 		#define boolean bool
 	#else
 		typedef enum {false, true} boolean;

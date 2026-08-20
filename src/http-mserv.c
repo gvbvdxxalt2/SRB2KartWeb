@@ -1,91 +1,3 @@
-#ifdef EMSCRIPTEN
-// SONIC ROBO BLAST 2 KART
-// Emscripten Stub for HTTP based master server
-
-#include "doomdef.h"
-#include "d_clisrv.h"
-#include "command.h"
-#include "console.h"
-#include "m_argv.h"
-#include "m_menu.h"
-#include "mserv.h"
-#include "i_tcp.h"
-#include "i_threads.h"
-
-consvar_t cv_masterserver_timeout = {
-    "masterserver_timeout", "5", CV_SAVE, CV_Unsigned,
-    NULL, 0, NULL, NULL, 0, 0, NULL
-};
-
-consvar_t cv_masterserver_debug = {
-    "masterserver_debug", "Off", CV_SAVE|CV_CALL, CV_OnOff,
-    NULL, 0, NULL, NULL, 0, 0, NULL
-};
-
-consvar_t cv_masterserver_token = {
-    "masterserver_token", "", CV_SAVE, NULL,
-    NULL, 0, NULL, NULL, 0, 0, NULL
-};
-
-#ifdef MASTERSERVER
-
-int HMS_register (void)
-{
-    // Stubbed for browser / WebAssembly sandbox
-    return 0;
-}
-
-int HMS_unlist (void)
-{
-    return 0;
-}
-
-int HMS_update (void)
-{
-    return 0;
-}
-
-void HMS_list_servers (void)
-{
-    CONS_Printf("Master server listings are disabled in web builds.\n");
-}
-
-msg_server_t * HMS_fetch_servers (msg_server_t *list, int query_id)
-{
-    (void)query_id;
-    if (list)
-        list[0].header.buffer[0] = 0; // End of list
-    return NULL;
-}
-
-int HMS_compare_mod_version (char *buffer, size_t buffer_size)
-{
-    (void)buffer;
-    (void)buffer_size;
-    return -1; // Assume matching version
-}
-
-const char * HMS_fetch_rules (char *buffer, size_t buffer_size)
-{
-    if (buffer_size > 0)
-        buffer[0] = '\0';
-    return NULL;
-}
-
-void HMS_set_api (char *api)
-{
-    (void)api;
-}
-
-#endif /* MASTERSERVER */
-
-static void MasterServer_Debug_OnChange (void)
-{
-}
-#endif
-
-#ifndef EMSCRIPTEN
-
 // SONIC ROBO BLAST 2 KART
 //-----------------------------------------------------------------------------
 // Copyright (C) 2020 by James R.
@@ -182,6 +94,7 @@ Printf_url (const char *url)
 			"HMS: connecting '%s'...\n", url);
 }
 
+#ifndef EMSCRIPTEN
 static size_t
 HMS_on_read (char *s, size_t _1, size_t n, void *userdata)
 {
@@ -206,10 +119,19 @@ HMS_on_read (char *s, size_t _1, size_t n, void *userdata)
 
 	return n;
 }
+#endif
 
 static struct HMS_buffer *
 HMS_connect (const char *format, ...)
 {
+
+	#ifdef EMSCRIPTEN
+	Contact_error();
+	Blame("Master server is not supported on Emscripten builds.\n");
+	return null;
+	#endif
+
+	#ifndef EMSCRIPTEN
 	va_list ap;
 	CURL *curl;
 	char *url;
@@ -312,11 +234,13 @@ HMS_connect (const char *format, ...)
 	free(url);
 
 	return buffer;
+	#endif
 }
 
 static int
 HMS_do (struct HMS_buffer *buffer)
 {
+	#ifndef EMSCRIPTEN
 	CURLcode cc;
 	long status;
 
@@ -357,19 +281,30 @@ HMS_do (struct HMS_buffer *buffer)
 	}
 	else
 		return 1;
+
+	#endif
+
+	#ifdef EMSCRIPTEN
+	Contact_error();
+	Blame("Master server is not supported on Emscripten builds.\n");
+	return 0;
+	#endif
 }
 
 static void
 HMS_end (struct HMS_buffer *buffer)
 {
+	#ifndef EMSCRIPTEN
 	curl_easy_cleanup(buffer->curl);
 	free(buffer->buffer);
 	free(buffer);
+	#endif
 }
 
 int
 HMS_register (void)
 {
+	#ifndef EMSCRIPTEN
 	struct HMS_buffer *hms;
 	int ok;
 
@@ -408,6 +343,13 @@ HMS_register (void)
 	HMS_end(hms);
 
 	return ok;
+	#endif
+
+	#ifndef EMSCRIPTEN
+	Contact_error();
+	Blame("Master server is not supported on Emscripten builds.\n");
+	return 0;
+	#endif
 }
 
 int
@@ -671,6 +613,3 @@ MasterServer_Debug_OnChange (void)
 		CONS_Printf("Master server debug messages will appear in log.txt\n");
 #endif
 }
-
-
-#endif

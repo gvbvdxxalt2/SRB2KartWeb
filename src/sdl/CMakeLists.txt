@@ -36,15 +36,12 @@ set(SRB2_SDL2_SOURCES
 	i_system.c
 	i_ttf.c
 	i_video.c
+	i_threads.c
 	#IMG_xpm.c
 	ogl_sdl.c
 
 	${SRB2_SDL2_SOUNDIMPL}
 )
-
-if(NOT EMSCRIPTEN)
-	list(APPEND SRB2_SDL2_SOURCES i_threads.c)
-endif()
 
 set(SRB2_SDL2_HEADERS
 	endtxt.h
@@ -181,13 +178,6 @@ if(${SDL2_FOUND})
 		${DISCORDRPC_LIBRARIES}
 	)
 
-	if(EMSCRIPTEN)
-		target_link_options(SRB2SDL2 PRIVATE
-			"-s USE_ZLIB=1"
-			"-s ALLOW_MEMORY_GROWTH=1"
-		)
-	endif()
-
 	if(${CMAKE_SYSTEM} MATCHES Linux)
 		target_link_libraries(SRB2SDL2 PRIVATE
 			m
@@ -280,11 +270,8 @@ if(${SDL2_FOUND})
 
 	target_compile_definitions(SRB2SDL2 PRIVATE
 		-DHAVE_SDL
+		-DHAVE_THREADS
 	)
-
-	if(NOT EMSCRIPTEN)
-		target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_THREADS)
-	endif()
 
 	## strip debug symbols into separate file when using gcc
 	if(CMAKE_COMPILER_IS_GNUCC)
