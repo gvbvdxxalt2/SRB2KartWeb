@@ -174,8 +174,15 @@ char *strcasestr(const char *in, const char *what);
 #endif
 
 #ifndef HAVE_DOSSTR_FUNCS
+
+#ifdef EMSCRIPTEN
+char *strupr(char *n); // from dosstr.c
+char *strlwr(char *n); // from dosstr.c
+#endif
+#ifndef EMSCRIPTEN
 int strupr(char *n); // from dosstr.c
 int strlwr(char *n); // from dosstr.c
+#endif
 #endif
 
 #include <stddef.h> // for size_t

@@ -89,8 +89,10 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #ifdef FREEBSD
 #include <kvm.h>
 #endif
+#ifndef __EMSCRIPTEN__
 #include <nlist.h>
 #include <sys/sysctl.h>
+#endif
 #endif
 #endif
 
@@ -3383,48 +3385,49 @@ void I_ShutdownSystem(void)
 #endif
 
 }
-
 void I_GetDiskFreeSpace(INT64 *freespace)
 {
-#if defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)
+#if defined (__EMSCRIPTEN__)
+    *freespace = 1024*1024*1024;
+#elif defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)
 #if defined (SOLARIS) || defined (__HAIKU__)
-	*freespace = INT32_MAX;
-	return;
+    *freespace = INT32_MAX;
+    return;
 #else // Both Linux and BSD have this, apparently.
-	struct statfs stfs;
-	if (statfs(".", &stfs) == -1)
-	{
-		*freespace = INT32_MAX;
-		return;
-	}
-	*freespace = stfs.f_bavail * stfs.f_bsize;
+    struct statfs stfs;
+    if (statfs(".", &stfs) == -1)
+    {
+        *freespace = INT32_MAX;
+        return;
+    }
+    *freespace = (INT64)stfs.f_bavail * (INT64)stfs.f_bsize;
 #endif
 #elif defined (_WIN32)
-	static p_GetDiskFreeSpaceExA pfnGetDiskFreeSpaceEx = NULL;
-	static boolean testwin95 = false;
-	ULARGE_INTEGER usedbytes, lfreespace;
+    static p_GetDiskFreeSpaceExA pfnGetDiskFreeSpaceEx = NULL;
+    static boolean testwin95 = false;
+    ULARGE_INTEGER usedbytes, lfreespace;
 
-	if (!testwin95)
-	{
-		pfnGetDiskFreeSpaceEx = (p_GetDiskFreeSpaceExA)(LPVOID)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetDiskFreeSpaceExA");
-		testwin95 = true;
-	}
-	if (pfnGetDiskFreeSpaceEx)
-	{
-		if (pfnGetDiskFreeSpaceEx(NULL, &lfreespace, &usedbytes, NULL))
-			*freespace = lfreespace.QuadPart;
-		else
-			*freespace = INT32_MAX;
-	}
-	else
-	{
-		DWORD SectorsPerCluster, BytesPerSector, NumberOfFreeClusters, TotalNumberOfClusters;
-		GetDiskFreeSpace(NULL, &SectorsPerCluster, &BytesPerSector,
-						 &NumberOfFreeClusters, &TotalNumberOfClusters);
-		*freespace = BytesPerSector*SectorsPerCluster*NumberOfFreeClusters;
-	}
+    if (!testwin95)
+    {
+        pfnGetDiskFreeSpaceEx = (p_GetDiskFreeSpaceExA)(LPVOID)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetDiskFreeSpaceExA");
+        testwin95 = true;
+    }
+    if (pfnGetDiskFreeSpaceEx)
+    {
+        if (pfnGetDiskFreeSpaceEx(NULL, &lfreespace, &usedbytes, NULL))
+            *freespace = lfreespace.QuadPart;
+        else
+            *freespace = INT32_MAX;
+    }
+    else
+    {
+        DWORD SectorsPerCluster, BytesPerSector, NumberOfFreeClusters, TotalNumberOfClusters;
+        GetDiskFreeSpace(NULL, &SectorsPerCluster, &BytesPerSector,
+                         &NumberOfFreeClusters, &TotalNumberOfClusters);
+        *freespace = BytesPerSector*SectorsPerCluster*NumberOfFreeClusters;
+    }
 #else // Dummy for platform independent; 1GB should be enough
-	*freespace = 1024*1024*1024;
+    *freespace = 1024*1024*1024;
 #endif
 }
 

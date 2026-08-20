@@ -87,7 +87,7 @@ function loadScript() {
   return new Promise((resolve, reject) => {
     loaderContent.textContent = "Loading game script...";
     var script = document.createElement("script");
-    script.src = "srb2.js?n=1&v=" + Date.now();
+    script.src = "srb2kart.js?n=1&v=" + Date.now();
     script.onload = resolve;
     script.onerror = reject;
     document.body.append(script);
@@ -97,10 +97,15 @@ function loadScript() {
 var CACHE_NAME = "srb2-assets-v1";
 async function downloadAndSaveAssets() {
   const assetList = [
-    { url: "assets/characters.pk3", filename: "characters.pk3" },
-    { url: "assets/music.pk3", filename: "music.pk3" },
-    { url: "assets/srb2.pk3", filename: "srb2.pk3" },
-    { url: "assets/zones.pk3", filename: "zones.pk3" }, // If you have it
+    { url: "assets/bonuschars.kart", filename: "bonuschars.kart" },
+    { url: "assets/chars.kart", filename: "chars.kart" },
+    { url: "assets/gfx.kart", filename: "gfx.kart" },
+    { url: "assets/maps.kart", filename: "maps.kart" },
+    { url: "assets/mdls.dat", filename: "mdls.dat" },
+    { url: "assets/music.kart", filename: "music.kart" },
+    { url: "assets/sounds.kart", filename: "sounds.kart" },
+    { url: "assets/srb2.srb", filename: "srb2.srb" },
+    { url: "assets/textures.kart", filename: "textures.kart" },
   ];
   // 1. Open the browser's cache storage
   const cache = await caches.open(CACHE_NAME);
@@ -179,6 +184,7 @@ async function initGame() {
   keepAlive(); // Try to keep the screen awake while playing
 
   ensureUserDataTree();
+  console.log(IDBFS,FS);
   FS.mount(IDBFS, {}, "/home/web_user");
   FS.syncfs(true, (err) => {
     if (err) {

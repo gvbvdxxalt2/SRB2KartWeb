@@ -178,6 +178,13 @@ if(${SDL2_FOUND})
 		${DISCORDRPC_LIBRARIES}
 	)
 
+	if(EMSCRIPTEN)
+		target_link_options(SRB2SDL2 PRIVATE
+			"-s USE_ZLIB=1"
+			"-s ALLOW_MEMORY_GROWTH=1"
+		)
+	endif()
+
 	if(${CMAKE_SYSTEM} MATCHES Linux)
 		target_link_libraries(SRB2SDL2 PRIVATE
 			m
