@@ -592,6 +592,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("exitlevel", Command_ExitLevel_f);
 	COM_AddCommand("showmap", Command_Showmap_f);
 	COM_AddCommand("mapmd5", Command_Mapmd5_f);
+	CONS_Printf("D_RegisterServerCommands(): commands registered.\n");
 
 	COM_AddCommand("addfile", Command_Addfile);
 	COM_AddCommand("listwad", Command_ListWADS_f);
@@ -626,12 +627,14 @@ void D_RegisterServerCommands(void)
 
 	// for master server connection
 	AddMServCommands();
+	CONS_Printf("D_RegisterServerCommands(): master server registered.\n");
 
 	// p_mobj.c
 	CV_RegisterVar(&cv_itemrespawntime);
 	CV_RegisterVar(&cv_itemrespawn);
 	CV_RegisterVar(&cv_flagtime);
 	CV_RegisterVar(&cv_suddendeath);
+	CONS_Printf("D_RegisterServerCommands(): initial variables registered.\n");
 
 	// misc
 	CV_RegisterVar(&cv_friendlyfire);
@@ -673,6 +676,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_eggmanbox);*/
 
 	K_RegisterKartStuff(); // SRB2kart
+	CONS_Printf("D_RegisterServerCommands(): kart variables registered.\n");
 
 	CV_RegisterVar(&cv_ringslinger);
 

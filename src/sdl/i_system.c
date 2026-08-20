@@ -23,6 +23,10 @@
 /// \file
 /// \brief SRB2 system stuff for SDL
 
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#endif
+
 #ifdef CMAKECONFIG
 #include "config.h"
 #else
@@ -3029,6 +3033,12 @@ void I_StartupTimer(void)
 
 void I_Sleep(UINT32 ms)
 {
+#if defined (__EMSCRIPTEN__)
+	if (emscripten_has_asyncify())
+	{
+		return emscripten_sleep(ms);
+	}
+#endif
 	SDL_Delay(ms);
 }
 
@@ -3182,6 +3192,10 @@ void I_Quit(void)
 		free(myargv); // Deallocate allocated memory
 death:
 	W_Shutdown();
+#ifdef __EMSCRIPTEN__
+	emscripten_cancel_main_loop();
+	emscripten_force_exit(0);
+#endif
 	exit(0);
 }
 

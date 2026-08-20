@@ -1421,31 +1421,42 @@ void D_SRB2Main(void)
 	HU_Init();
 
 	COM_Init();
+	CONS_Printf("COM_Init(): done.\n");
 	// libogc has a CON_Init function, we must rename SRB2's CON_Init in WII/libogc
 #ifndef _WII
 	CON_Init();
 #else
 	CON_InitWii();
 #endif
+	CONS_Printf("CON_Init(): done.\n");
 
 	D_RegisterServerCommands();
+	CONS_Printf("D_RegisterServerCommands(): done.\n");
 	D_RegisterClientCommands(); // be sure that this is called before D_CheckNetGame
+	CONS_Printf("D_RegisterClientCommands(): done.\n");
 	R_RegisterEngineStuff();
+	CONS_Printf("R_RegisterEngineStuff(): done.\n");
 	S_RegisterSoundStuff();
+	CONS_Printf("S_RegisterSoundStuff(): done.\n");
 
 	I_RegisterSysCommands();
+	CONS_Printf("I_RegisterSysCommands(): done.\n");
 
 	//--------------------------------------------------------- CONFIG.CFG
 	M_FirstLoadConfig(); // WARNING : this do a "COM_BufExecute()"
+	CONS_Printf("M_FirstLoadConfig(): done.\n");
 
 	G_LoadGameData();
+	CONS_Printf("G_LoadGameData(): done.\n");
 
 #if (defined (__unix__) && !defined (MSDOS)) || defined (UNIXCOMMON) || defined (HAVE_SDL)
 	VID_PrepareModeList(); // Regenerate Modelist according to cv_fullscreen
 #endif
+	CONS_Printf("VID_PrepareModeList(): done.\n");
 
 	// set user default mode or mode set at cmdline
 	SCR_CheckDefaultMode();
+	CONS_Printf("SCR_CheckDefaultMode(): done.\n");
 
 	wipegamestate = gamestate;
 
