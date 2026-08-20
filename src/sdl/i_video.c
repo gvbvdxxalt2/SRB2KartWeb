@@ -2176,6 +2176,7 @@ int EMSCRIPTEN_KEEPALIVE change_resolution_safe(int x, int y)
 	if (window) {
         SDL_SetWindowSize(window, x, y);
     }
+	return 1;
 }
 int EMSCRIPTEN_KEEPALIVE change_resolution_force(int x, int y)
 {
@@ -2210,7 +2211,6 @@ int EMSCRIPTEN_KEEPALIVE change_resolution_force(int x, int y)
     src_rect.h = vid.height;
 
     // 5. Restart Rendering logic
-    VID_CheckRenderer();
     refresh_rate = VID_GetRefreshRate();
     
     // Recalculate lookups (V_Init is safe now that we capped resolution to 1920)
@@ -2227,12 +2227,13 @@ void EMSCRIPTEN_KEEPALIVE inject_text(const char *text)
 	if (text == NULL || text[0] == '\0')
 		return;
 
-	event.type = ev_text;
+	event.type = ev_keydown;
+	while (text[len] != 0x00)
 	{
-		event.key = text[len];
+		event.data1 = text[len];
 		D_PostEvent(&event);
 		len++;
-	} while (text[len] != 0x00);
+	}
 }
 
 void EMSCRIPTEN_KEEPALIVE inject_keycode(int key, int type)
@@ -2250,8 +2251,8 @@ void EMSCRIPTEN_KEEPALIVE inject_keycode(int key, int type)
 	{
 		return;
 	}
-	event.key = key;
-	if (event.key) D_PostEvent(&event);
+	event.data1 = key;
+	if (event.data1) D_PostEvent(&event);
 }
 
 void EMSCRIPTEN_KEEPALIVE unlock_mouse(void)
@@ -2264,11 +2265,10 @@ void EMSCRIPTEN_KEEPALIVE SRB2_AddMouseDelta(int dx, int dy)
 	SDL_SetWindowGrab(window, SDL_TRUE);
 
 	event_t event;
-	//SDL_memset(&event, 0, sizeof(event_t));
 	event.type = ev_mouse;
-	event.key = 0;
-	event.x = dx;
-	event.y = dy;
+	event.data1 = 0;
+	event.data2 = dx;
+	event.data3 = dy;
 	D_PostEvent(&event);
 }
 
