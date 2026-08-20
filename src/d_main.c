@@ -640,11 +640,6 @@ void D_SRB2Loop(void)
 	if (!loop_initialized)
 	{
 		loop_initialized = true;
-
-#ifdef __EMSCRIPTEN__
-		emscripten_set_main_loop(D_SRB2Loop, 0, 1);
-#endif
-
 		if (dedicated)
 			server = true;
 
@@ -676,7 +671,7 @@ void D_SRB2Loop(void)
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
 
-	#ifdef __EMSCRIPTEN__
+	#ifdef EMSCRIPTEN
 		EM_ASM(
 			try {
 				StartedMainLoopCallback();
@@ -690,6 +685,10 @@ void D_SRB2Loop(void)
 			V_DrawFixedPatch(0, 0, FRACUNIT/2, 0, (patch_t *)W_CacheLumpNum(W_GetNumForName("KARTKREW"), PU_CACHE), NULL);
 		I_FinishUpdate(); // page flip or blit buffer
 	}
+
+	#ifdef __EMSCRIPTEN__
+		emscripten_set_main_loop(D_SRB2Loop, 0, 1);
+	#endif
 
 	for (;;)
 	{

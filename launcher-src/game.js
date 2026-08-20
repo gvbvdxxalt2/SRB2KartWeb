@@ -655,4 +655,21 @@ if (false) {
   });
 }
 
+// 1. Synchronous runtime errors & resource failures
+window.addEventListener('error', (event) => {
+  // Check if it's a resource loading error (like a failed <img> or <script>)
+  if (event.target && (event.target.tagName === 'IMG' || event.target.tagName === 'SCRIPT')) {
+    console.error('Resource failed to load:', event.target);
+    return;
+  }
+
+  window.alert('Uncaught JS Error:' + event.message + ' at ' + event.filename + ':' + event.lineno + ':' + event.colno);
+}, true);
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled Promise Rejection:', {
+    reason: event.reason // The error or message passed to reject()
+  });
+});
+
 module.exports = { startGame, enableStartServer, disableStartServer };
