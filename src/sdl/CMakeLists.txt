@@ -36,12 +36,15 @@ set(SRB2_SDL2_SOURCES
 	i_system.c
 	i_ttf.c
 	i_video.c
-	i_threads.c
 	#IMG_xpm.c
 	ogl_sdl.c
 
 	${SRB2_SDL2_SOUNDIMPL}
 )
+
+if(NOT EMSCRIPTEN)
+	list(APPEND SRB2_SDL2_SOURCES i_threads.c)
+endif()
 
 set(SRB2_SDL2_HEADERS
 	endtxt.h
@@ -277,8 +280,11 @@ if(${SDL2_FOUND})
 
 	target_compile_definitions(SRB2SDL2 PRIVATE
 		-DHAVE_SDL
-		-DHAVE_THREADS
 	)
+
+	if(NOT EMSCRIPTEN)
+		target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_THREADS)
+	endif()
 
 	## strip debug symbols into separate file when using gcc
 	if(CMAKE_COMPILER_IS_GNUCC)
