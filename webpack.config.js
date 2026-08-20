@@ -6,12 +6,23 @@ try {
   require("fs").rmSync("./launcher-dist", { recursive: true });
 } catch (e) {}
 
-module.exports = {
+module.exports = () => {
+  const isDevServer = process.env.WEBPACK_SERVE === "true";
+
+  return {
   mode: "production",
   devServer: {
     allowedHosts: "all",
     port: (+require("process").env.PORT) || 3000,
     client: false,
+    static: [
+      { directory: path.resolve(__dirname, "static") },
+      { directory: path.resolve(__dirname, "build-wasm/bin") },
+      {
+        directory: path.resolve(__dirname, "game-assets"),
+        publicPath: "/assets/",
+      },
+    ],
   },
   cache: {
     type: "filesystem",
@@ -68,7 +79,7 @@ module.exports = {
       template: "./launcher-src/base_html.html",
       chunks: ["filemanager"],
     }),
-    new CopyWebpackPlugin({
+    !isDevServer && new CopyWebpackPlugin({
       patterns: [
         //Images and anything displayed on the site.
         {
@@ -90,5 +101,6 @@ module.exports = {
         },
       ],
     }),
-  ],
+  ].filter(Boolean),
+  };
 };

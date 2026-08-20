@@ -245,6 +245,20 @@ window.ChangeResolution = (x, y) => {
   }
 };
 
+var textarea = document.createElement("textarea");
+textarea.style.width = "300px";
+textarea.style.height = "300px";
+textarea.style.background = "rgba(0,0,0,0.5)";
+textarea.style.color = "green";
+textarea.style.top = "0";
+textarea.style.left = "0";
+textarea.style.position = "fixed";
+document.body.append(textarea);
+
+async function debugTextDiv(...content) {
+  textarea.textContent += content.join(" ") + "\n";
+}
+
 async function startGame(options = {}) {
   loaderMain.hidden = false;
   launcherMain.hidden = true;
@@ -284,8 +298,8 @@ async function startGame(options = {}) {
   Module.arguments.push("CUSTOM");*/
 
   Module.noInitialRun = true;
-  Module.print = () => {};
-  Module.printErrr = console.error;
+  Module.print = debugTextDiv;
+  Module.printErr = debugTextDiv;
   Module.canvas = gameCanvas;
   Module.onRuntimeInitialized = initGame;
   Module.pauseOnVisibilityChange = false;
