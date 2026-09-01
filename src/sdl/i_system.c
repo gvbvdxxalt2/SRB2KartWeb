@@ -494,6 +494,14 @@ void I_GetConsoleEvents(void)
 	char key = 0;
 	ssize_t d;
 
+	#ifdef EMSCRIPTEN
+	if (!dedicated)
+	{
+		// we don't want to read from stdin in the browser, it will block the main loop
+		return;
+	}
+	#endif
+
 	if (!consolevent)
 		return;
 

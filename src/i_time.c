@@ -77,6 +77,13 @@ void I_UpdateTime(fixed_t timescale)
 
     elapsedseconds = (double)(enterprecise - oldenterprecise) / I_GetPrecisePrecision();
 
+    #ifdef EMSCRIPTEN
+    // Cap maximum delta time per frame to prevent giant time jumps on tab resume
+    if (elapsedseconds > 0.15) {
+        elapsedseconds = 0.15; // Treat tab return as a maximum ~100ms frame
+    }
+    #endif
+
     // Clamp huge deltas (e.g., browser tab unfocused or first frame start)
     if (elapsedseconds < 0.0 || elapsedseconds > 0.5)
         elapsedseconds = 1.0 / ticratescaled;

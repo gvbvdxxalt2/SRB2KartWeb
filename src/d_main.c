@@ -1087,7 +1087,8 @@ void D_SRB2Main(void)
 	boolean autostart = false;
 
 	#ifdef EMSCRIPTEN
-	fclose(stdin);
+	// Close stdin in the browser
+	//fclose(stdin);
 	#endif
 
 	// Print GPL notice for our console users (Linux)
