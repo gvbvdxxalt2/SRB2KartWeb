@@ -23,15 +23,12 @@
 /// \file
 /// \brief SRB2 system stuff for SDL
 
-#ifdef EMSCRIPTEN
+
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
 
-#ifdef CMAKECONFIG
 #include "config.h"
-#else
-#include "../config.h.in"
-#endif
 
 #include <signal.h>
 
@@ -83,7 +80,7 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #define HAVE_SDLCPUINFO
 
 #if defined (__unix__) || defined(__APPLE__) || (defined (UNIXCOMMON) && !defined (__HAIKU__))
-#if defined (__linux__)
+#if defined (__linux__) || defined(__EMSCRIPTEN__)
 #include <sys/vfs.h>
 #else
 #include <sys/param.h>
@@ -93,10 +90,8 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #ifdef FREEBSD
 #include <kvm.h>
 #endif
-#ifndef __EMSCRIPTEN__
 #include <nlist.h>
-#include <sys/sysctl.h>
-#endif
+#include <sys/vmmeter.h>
 #endif
 #endif
 
@@ -108,10 +103,10 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #endif
 #endif
 
-#if (defined (__unix__) || (defined (UNIXCOMMON) && !defined (__APPLE__))) && !defined (__EMSCRIPTEN__)
+#if defined (__unix__) || (defined (UNIXCOMMON) && !defined (__APPLE__))
 #include <errno.h>
 #include <sys/wait.h>
-#define NEWSIGNALHANDLER
+// #define NEWSIGNALHANDLER
 #endif
 
 #ifndef NOMUMBLE
@@ -3033,16 +3028,16 @@ void I_StartupTimer(void)
 
 void I_Sleep(UINT32 ms)
 {
-#if defined (__EMSCRIPTEN__)
+#ifdef EMSCRIPTEN
 	if (emscripten_has_asyncify())
 	{
 		return emscripten_sleep(ms);
 	}
 #endif
-	SDL_Delay(ms);
+	//SDL_Delay(ms);
 }
 
-#ifdef NEWSIGNALHANDLER
+#if defined(NEWSIGNALHANDLER) && !(defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN))
 FUNCNORETURN static ATTRNORETURN void newsignalhandler_Warn(const char *pr)
 {
 	char text[128];
@@ -3119,7 +3114,7 @@ static void I_Fork(void)
 			}
 	}
 }
-#endif/*NEWSIGNALHANDLER*/
+#endif /* defined(NEWSIGNALHANDLER) && !(defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN)) */
 
 INT32 I_StartupSystem(void)
 {
@@ -3132,7 +3127,7 @@ INT32 I_StartupSystem(void)
 	I_AddExitFunc(I_stop_threads);
 #endif
 	I_StartupConsole();
-#ifdef NEWSIGNALHANDLER
+#if defined(NEWSIGNALHANDLER) && !(defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN))
 	I_Fork();
 #endif
 	I_RegisterSignals();
@@ -3192,10 +3187,6 @@ void I_Quit(void)
 		free(myargv); // Deallocate allocated memory
 death:
 	W_Shutdown();
-#ifdef __EMSCRIPTEN__
-	emscripten_cancel_main_loop();
-	emscripten_force_exit(0);
-#endif
 	exit(0);
 }
 

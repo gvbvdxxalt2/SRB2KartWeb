@@ -11,6 +11,9 @@
 /// \file  mserv.c
 /// \brief Commands used to communicate with the master server
 
+void MasterClient_Ticker(void)
+{}
+
 #if !defined (UNDER_CE)
 #include <time.h>
 #endif
@@ -209,14 +212,14 @@ Finish_registration (void)
 
 	registered = HMS_register();
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		MSRegistered = registered;
 		MSRegisteredId = MSId;
 
 		time(&MSLastPing);
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (registered)
 		CONS_Printf("Master server registration successful.\n");
@@ -228,23 +231,23 @@ Finish_update (void)
 	int registered;
 	int done;
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		registered = MSRegistered;
 		MSUpdateAgain = false;/* this will happen anyway */
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (registered)
 	{
 		if (HMS_update())
 		{
-			Lock_state();
+			/*Lock_state();*/
 			{
 				time(&MSLastPing);
 				MSRegistered = true;
 			}
-			Unlock_state();
+			/*Unlock_state();*/
 
 			CONS_Printf("Updated master server listing.\n");
 		}
@@ -254,14 +257,14 @@ Finish_update (void)
 	else
 		Finish_registration();
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		done = ! MSUpdateAgain;
 
 		if (done)
 			MSInProgress = false;
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (! done)
 		Finish_update();
@@ -272,14 +275,14 @@ Finish_unlist (void)
 {
 	int registered;
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		registered = MSRegistered;
 
 		if (MSId == MSRegisteredId)
 			MSId++;
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (registered)
 	{
@@ -288,11 +291,11 @@ Finish_unlist (void)
 		if (HMS_unlist())
 			CONS_Printf("Server deregistration request successfully sent.\n");
 
-		Lock_state();
+		/*Lock_state();*/
 		{
 			MSRegistered = false;
 		}
-		Unlock_state();
+		/*Unlock_state();*/
 
 #ifdef HAVE_THREADS
 		I_wake_all_cond(&MSCond);
@@ -309,10 +312,10 @@ Finish_masterserver_change (char *api)
 
 	if (HMS_fetch_rules(rules, sizeof rules))
 	{
-		Lock_state();
+		/*Lock_state();*/
 		Z_Free(MSRules);
 		MSRules = Z_StrDup(rules);
-		Unlock_state();
+		/*Unlock_state();*/
 	}
 }
 
@@ -322,11 +325,11 @@ Server_id (void)
 {
 	int *id;
 	id = malloc(sizeof *id);
-	Lock_state();
+	/*Lock_state();*/
 	{
 		*id = MSId;
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 	return id;
 }
 
@@ -335,12 +338,12 @@ New_server_id (void)
 {
 	int *id;
 	id = malloc(sizeof *id);
-	Lock_state();
+	/*Lock_state();*/
 	{
 		*id = ++MSId;
 		I_wake_all_cond(&MSCond);
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 	return id;
 }
 
@@ -349,7 +352,7 @@ Register_server_thread (int *id)
 {
 	int same;
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		/* wait for previous unlist to finish */
 		while (*id == MSId && MSRegistered)
@@ -357,7 +360,7 @@ Register_server_thread (int *id)
 
 		same = ( *id == MSId );/* it could have been a while */
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (same)/* it could have been a while */
 		Finish_registration();
@@ -370,11 +373,11 @@ Update_server_thread (int *id)
 {
 	int same;
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		same = ( *id == MSRegisteredId );
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (same)
 		Finish_update();
@@ -387,11 +390,11 @@ Unlist_server_thread (int *id)
 {
 	int same;
 
-	Lock_state();
+	/*Lock_state();*/
 	{
 		same = ( *id == MSRegisteredId );
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	if (same)
 		Finish_unlist();
@@ -402,12 +405,12 @@ Unlist_server_thread (int *id)
 static void
 Change_masterserver_thread (char *api)
 {
-	Lock_state();
+	/*Lock_state();*/
 	{
 		while (MSRegistered)
 			I_hold_cond(&MSCond, MSMutex);
 	}
-	Unlock_state();
+	/*Unlock_state();*/
 
 	Finish_masterserver_change(api);
 }
@@ -460,9 +463,9 @@ char *GetMasterServerRules(void)
 {
 	char *rules;
 
-	Lock_state();
+	/*Lock_state();*/
 	rules = MSRules ? Z_StrDup(MSRules) : NULL;
-	Unlock_state();
+	/*Unlock_state();*/
 
 	return rules;
 }
@@ -482,7 +485,7 @@ static inline void SendPingToMasterServer(void)
 	{
 		time(&now);
 
-		Lock_state();
+		/*Lock_state();*/
 		{
 			ready = (
 					MSRegisteredId == MSId &&
@@ -493,19 +496,13 @@ static inline void SendPingToMasterServer(void)
 			if (ready)
 				MSInProgress = true;
 		}
-		Unlock_state();
+		/*Unlock_state();*/
 
 		if (ready)
 			UpdateServer();
 	}
 }
 
-void MasterClient_Ticker(void)
-{
-#ifdef MASTERSERVER
-	SendPingToMasterServer();
-#endif
-}
 
 static void
 Set_api (const char *api)
@@ -532,7 +529,7 @@ Update_parameters (void)
 
 	if (Online())
 	{
-		Lock_state();
+		/*Lock_state();*/
 		{
 			delayed = MSInProgress;
 
@@ -541,7 +538,7 @@ Update_parameters (void)
 			else
 				registered = MSRegistered;
 		}
-		Unlock_state();
+		/*Unlock_state();*/
 
 		if (! delayed && registered)
 			UpdateServer();
@@ -552,12 +549,14 @@ Update_parameters (void)
 static void MasterServer_OnChange(void)
 {
 #ifdef MASTERSERVER
-	UnregisterServer();
+	/* UnregisterServer(); */
 
 	Set_api(cv_masterserver.string);
 
 	if (Online())
-		RegisterServer();
+	{
+		/* RegisterServer(); */
+	}
 #endif/*MASTERSERVER*/
 }
 
@@ -570,21 +569,21 @@ Advertise_OnChange(void)
 	{
 		if (serverrunning && netgame)
 		{
-			Lock_state();
+			/*Lock_state();*/
 			{
-				different = ( MSId != MSRegisteredId );
+				/* different = ( MSId != MSRegisteredId ); */
 			}
-			Unlock_state();
+			/*Unlock_state();*/
 
 			if (different)
 			{
-				RegisterServer();
+				/* RegisterServer(); */
 			}
 		}
 	}
 	else
 	{
-		UnregisterServer();
+		/* UnregisterServer(); */
 	}
 
 #ifdef HAVE_DISCORDRPC

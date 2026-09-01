@@ -18,7 +18,7 @@ consvar_t cv_masterserver_timeout = {
 };
 
 consvar_t cv_masterserver_debug = {
-    "masterserver_debug", "Off", CV_SAVE|CV_CALL, CV_OnOff,
+	"masterserver_debug", "Off", CV_SAVE, CV_OnOff,
     NULL, 0, NULL, NULL, 0, 0, NULL
 };
 

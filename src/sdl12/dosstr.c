@@ -15,11 +15,34 @@
 
 #include <ctype.h>
 
+#ifdef EMSCRIPTEN
+char *strupr(char *n)
+{
+	char *s = n;
+	while (*s != '\0')
+	{
+		*s = toupper((unsigned char)*s);
+		s++;
+	}
+	return n;
+}
+
+char *strlwr(char *n)
+{
+	char *s = n;
+	while (*s != '\0')
+	{
+		*s = tolower((unsigned char)*s);
+		s++;
+	}
+	return n;
+}
+#else
 int strupr(char *n)
 {
 	while (*n != '\0')
 	{
-		*n = toupper(*n);
+		*n = toupper((unsigned char)*n);
 		n++;
 	}
 	return 1;
@@ -29,10 +52,11 @@ int strlwr(char *n)
 {
 	while (*n != '\0')
 	{
-		*n = tolower(*n);
+		*n = tolower((unsigned char)*n);
 		n++;
 	}
 	return 1;
 }
+#endif
 
 #endif

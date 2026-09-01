@@ -2,28 +2,33 @@
 
 set(SRB2_CONFIG_SDL2_USEMIXER ON CACHE BOOL "Use SDL2_mixer or regular sdl sound")
 
-if(${SRB2_CONFIG_SDL2_USEMIXER})
-	if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
-		set(SDL2_MIXER_FOUND ON)
-		if(${SRB2_SYSTEM_BITS} EQUAL 64)
-			set(SDL2_MIXER_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/x86_64-w64-mingw32/include/SDL2)
-			set(SDL2_MIXER_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/x86_64-w64-mingw32/lib -lSDL2_mixer")
-		else() # 32-bit
-			set(SDL2_MIXER_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/i686-w64-mingw32/include/SDL2)
-			set(SDL2_MIXER_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/i686-w64-mingw32/lib -lSDL2_mixer")
+if(EMSCRIPTEN)
+	set(SRB2_HAVE_MIXER ON)
+	set(SRB2_SDL2_SOUNDIMPL mixer_sound.c)
+else()
+	if(${SRB2_CONFIG_SDL2_USEMIXER})
+		if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
+			set(SDL2_MIXER_FOUND ON)
+			if(${SRB2_SYSTEM_BITS} EQUAL 64)
+				set(SDL2_MIXER_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/x86_64-w64-mingw32/include/SDL2)
+				set(SDL2_MIXER_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/x86_64-w64-mingw32/lib -lSDL2_mixer")
+			else() # 32-bit
+				set(SDL2_MIXER_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/i686-w64-mingw32/include/SDL2)
+				set(SDL2_MIXER_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2_mixer/i686-w64-mingw32/lib -lSDL2_mixer")
+			endif()
+		else()
+			find_package(SDL2_mixer)
+		endif()
+		if(${SDL2_MIXER_FOUND})
+			set(SRB2_HAVE_MIXER ON)
+			set(SRB2_SDL2_SOUNDIMPL mixer_sound.c)
+		else()
+			message(WARNING "You specified that SDL2_mixer is available, but it was not found. Falling back to sdl sound.")
+			set(SRB2_SDL2_SOUNDIMPL sdl_sound.c)
 		endif()
 	else()
-		find_package(SDL2_mixer)
-	endif()
-	if(${SDL2_MIXER_FOUND})
-		set(SRB2_HAVE_MIXER ON)
-		set(SRB2_SDL2_SOUNDIMPL mixer_sound.c)
-	else()
-		message(WARNING "You specified that SDL2_mixer is available, but it was not found. Falling back to sdl sound.")
 		set(SRB2_SDL2_SOUNDIMPL sdl_sound.c)
 	endif()
-else()
-	set(SRB2_SDL2_SOUNDIMPL sdl_sound.c)
 endif()
 
 set(SRB2_SDL2_SOURCES
@@ -36,15 +41,12 @@ set(SRB2_SDL2_SOURCES
 	i_system.c
 	i_ttf.c
 	i_video.c
+	i_threads.c
 	#IMG_xpm.c
 	ogl_sdl.c
 
 	${SRB2_SDL2_SOUNDIMPL}
 )
-
-if(NOT EMSCRIPTEN)
-	list(APPEND SRB2_SDL2_SOURCES i_threads.c)
-endif()
 
 set(SRB2_SDL2_HEADERS
 	endtxt.h
@@ -57,17 +59,28 @@ set(SRB2_SDL2_HEADERS
 source_group("Interface Code" FILES ${SRB2_SDL2_SOURCES} ${SRB2_SDL2_HEADERS})
 
 # Dependency
-if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
-	set(SDL2_FOUND ON)
-	if(${SRB2_SYSTEM_BITS} EQUAL 64)
-		set(SDL2_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2/x86_64-w64-mingw32/include/SDL2)
-		set(SDL2_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2/x86_64-w64-mingw32/lib -lSDL2")
-	else() # 32-bit
-		set(SDL2_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2/i686-w64-mingw32/include/SDL2)
-		set(SDL2_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2/i686-w64-mingw32/lib -lSDL2")
+if(EMSCRIPTEN)
+	if(NOT TARGET SDL2::SDL2)
+		add_library(SDL2::SDL2 INTERFACE IMPORTED)
 	endif()
+	if(NOT TARGET SDL2::SDL2main)
+		add_library(SDL2::SDL2main INTERFACE IMPORTED)
+	endif()
+	set(SDL2_LIBRARIES SDL2::SDL2)
+	set(SDL2_INCLUDE_DIRS "")
 else()
-	find_package(SDL2)
+	if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
+		set(SDL2_FOUND ON)
+		if(${SRB2_SYSTEM_BITS} EQUAL 64)
+			set(SDL2_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2/x86_64-w64-mingw32/include/SDL2)
+			set(SDL2_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2/x86_64-w64-mingw32/lib -lSDL2")
+		else() # 32-bit
+			set(SDL2_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/SDL2/i686-w64-mingw32/include/SDL2)
+			set(SDL2_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/SDL2/i686-w64-mingw32/lib -lSDL2")
+		endif()
+	else()
+		find_package(SDL2)
+	endif()
 endif()
 
 if(${SDL2_FOUND})
@@ -181,13 +194,6 @@ if(${SDL2_FOUND})
 		${DISCORDRPC_LIBRARIES}
 	)
 
-	if(EMSCRIPTEN)
-		target_link_options(SRB2SDL2 PRIVATE
-			"-s USE_ZLIB=1"
-			"-s ALLOW_MEMORY_GROWTH=1"
-		)
-	endif()
-
 	if(${CMAKE_SYSTEM} MATCHES Linux)
 		target_link_libraries(SRB2SDL2 PRIVATE
 			m
@@ -283,7 +289,9 @@ if(${SDL2_FOUND})
 	)
 
 	if(NOT EMSCRIPTEN)
-		target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_THREADS)
+		target_compile_definitions(SRB2SDL2 PRIVATE
+			-DHAVE_THREADS
+		)
 	endif()
 
 	## strip debug symbols into separate file when using gcc

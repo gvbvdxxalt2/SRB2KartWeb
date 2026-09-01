@@ -20,7 +20,14 @@
     "libgme",
     "libopenmpt",
     "libpng",
-    "miniupnpc",
+    {
+      "name": "libupnp",
+      "platform": "!wasm32"
+    },
+    {
+      "name": "miniupnpc",
+      "platform": "!wasm32"
+    },
     {
       "name": "sdl2",
       "platform": "!linux"

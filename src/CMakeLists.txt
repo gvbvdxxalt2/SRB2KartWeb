@@ -382,26 +382,16 @@ if(${SRB2_CONFIG_HAVE_DISCORDRPC})
 endif()
 
 if(${SRB2_CONFIG_HAVE_ZLIB})
-	if(EMSCRIPTEN)
-		# Emscripten provides zlib natively via compiler/linker flags
+	if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
 		set(ZLIB_FOUND ON)
-		set(ZLIB_LIBRARIES "") # Clear out manual paths
-		
-		# Clear out libraries that aren't natively ported or needed for the web build
-		set(CURL_LIBRARIES "")
-		set(DISCORDRPC_LIBRARIES "")
-	else()
-		if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
-			set(ZLIB_FOUND ON)
-			set(ZLIB_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/zlib)
-			if(${SRB2_SYSTEM_BITS} EQUAL 64)
-				set(ZLIB_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/zlib/win32 -lz64")
-			else() # 32-bit
-				set(ZLIB_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/zlib/win32 -lz32")
-			endif()
-		else()
-			find_package(ZLIB)
+		set(ZLIB_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/zlib)
+		if(${SRB2_SYSTEM_BITS} EQUAL 64)
+			set(ZLIB_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/zlib/win32 -lz64")
+		else() # 32-bit
+			set(ZLIB_LIBRARIES "-L${CMAKE_SOURCE_DIR}/libs/zlib/win32 -lz32")
 		endif()
+	else()
+		find_package(ZLIB)
 	endif()
 	if(${ZLIB_FOUND})
 		set(SRB2_HAVE_ZLIB ON)
@@ -413,10 +403,7 @@ endif()
 
 if(${SRB2_CONFIG_HAVE_PNG} AND ${SRB2_CONFIG_HAVE_ZLIB})
 	if (${ZLIB_FOUND})
-		if(EMSCRIPTEN)
-			set(PNG_FOUND ON)
-			set(PNG_LIBRARIES "")
-		elseif(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
+		if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
 			set(PNG_FOUND ON)
 			set(PNG_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/libpng-src)
 			if(${SRB2_SYSTEM_BITS} EQUAL 64)
@@ -444,10 +431,7 @@ if(${SRB2_CONFIG_HAVE_PNG} AND ${SRB2_CONFIG_HAVE_ZLIB})
 endif()
 
 if(${SRB2_CONFIG_HAVE_CURL})
-	if(EMSCRIPTEN)
-		set(CURL_FOUND OFF)
-		set(CURL_LIBRARIES "")
-	elseif(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
+	if(${SRB2_CONFIG_USE_INTERNAL_LIBRARIES})
 		set(CURL_FOUND ON)
 		set(CURL_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/curl/include)
 		if(${SRB2_SYSTEM_BITS} EQUAL 64)
@@ -465,9 +449,6 @@ if(${SRB2_CONFIG_HAVE_CURL})
 		message(WARNING "You have specified that CURL is available but it was not found. SRB2Kart may not compile correctly.")
 	endif()
 endif()
-
-# set(SRB2_HAVE_CURL OFF)
-# remove_definitions(-DHAVE_CURL)
 
 if(${SRB2_CONFIG_HWRENDER})
 	add_definitions(-DHWRENDER)
@@ -553,9 +534,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -mno-ms-bitfields)
 endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wno-absolute-value)
-endif()
+# if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+# 	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wno-absolute-value)
+# endif()
 
 add_definitions(-DCMAKECONFIG)
 
@@ -576,9 +557,13 @@ if(NOT ${SRB2_SDL2_AVAILABLE} AND NOT ${SRB2_WIN32_AVAILABLE})
 	message(FATAL_ERROR "There are no targets available to build an SRB2Kart executable. :(")
 endif()
 
+# Keep Emscripten-specific linker settings limited to the toolchain and runtime flags.
+# Injecting an arbitrary JS library here destabilizes the browser build and masks the
+# underlying compatibility issues that lead to the crashy Web configuration.
+
 
 target_link_options(SRB2SDL2 PRIVATE
-    "-sUSE_SDL=2"
+	"-sUSE_SDL=2"
     "-sASYNCIFY"
     "-lidbfs.js"
     "-sEXPORTED_RUNTIME_METHODS=['callMain','FS','ccall','cwrap','IDBFS','HEAPU8']"
@@ -594,8 +579,6 @@ target_link_options(SRB2SDL2 PRIVATE
     # You must point this to the .js file that contains your 'mergeInto(LibraryManager.library, ...)' code.
     # CHECK THE PATH BELOW: It is likely in 'src/sdl/srb2_web.js' or similar.
     "--js-library=${CMAKE_SOURCE_DIR}/src/sdl/i_net_web.js" 
-	# "--js-library=${CMAKE_SOURCE_DIR}/src/netcode/mserv_web.js" 
-	# "--js-library=${CMAKE_SOURCE_DIR}/src/netcode/emscripten_serverinfo.js" 
 
     # 3. MEMORY STABILITY
     "-sINITIAL_MEMORY=268435456" # Starts at 256MB

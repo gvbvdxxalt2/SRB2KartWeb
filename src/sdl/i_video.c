@@ -19,14 +19,14 @@
 /// \file
 /// \brief SRB2 graphics stuff for SDL
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
 #include <stdlib.h>
 #include <errno.h>
 
 #include <signal.h>
+
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#endif
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4214 4244)
@@ -183,10 +183,6 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen);
 //static void Impl_SetWindowName(const char *title);
 static void Impl_SetWindowIcon(void);
 
-#ifdef EMSCRIPTEN
-extern int SRB2_VideoResolutionInfo(INT32 width, INT32 height);
-#endif
-
 static void SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen)
 {
 	static SDL_bool wasfullscreen = SDL_FALSE;
@@ -278,10 +274,6 @@ static void SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen)
 		SDL_PixelFormatEnumToMasks(sw_texture_format, &bpp, &rmask, &gmask, &bmask, &amask);
 		vidSurface = SDL_CreateRGBSurface(0, width, height, bpp, rmask, gmask, bmask, amask);
 	}
-
-	#ifdef EMSCRIPTEN
-	SRB2_VideoResolutionInfo(width, height);
-	#endif
 }
 
 static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)
@@ -2044,7 +2036,9 @@ void I_StartupGraphics(void)
 	// Create window
 	//Impl_CreateWindow(USE_FULLSCREEN);
 	//Impl_SetWindowName("SRB2Kart "VERSIONSTRING);
-	VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT));
+#ifndef EMSCRIPTEN
+    VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT));
+#endif
 
 	vid.width = BASEVIDWIDTH; // Default size for startup
 	vid.height = BASEVIDHEIGHT; // BitsPerPixel is the SDL interface's
@@ -2062,12 +2056,15 @@ void I_StartupGraphics(void)
 #endif
 	Impl_SetWindowIcon();
 
-	#ifdef __EMSCRIPTEN__
-		// This is now the ONLY call to SetMode
-		VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH*2, BASEVIDHEIGHT*2));
-	#else
-		VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT));
+	#ifndef EMSCRIPTEN
+	VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT));
 	#endif
+	#ifdef EMSCRIPTEN
+    // This is now the ONLY call to SetMode
+    VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH*2, BASEVIDHEIGHT*2));
+#else
+    VID_SetMode(VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT));
+#endif
 
 	if (M_CheckParm("-nomousegrab"))
 		mousegrabok = SDL_FALSE;
@@ -2159,8 +2156,7 @@ static void Impl_SetVsync(void)
 }
 #endif
 
-
-#ifdef __EMSCRIPTEN__
+#ifdef EMSCRIPTEN
 #include <SDL2/SDL.h>
 #include "../doomdef.h"
 #include "../i_video.h"
@@ -2172,51 +2168,10 @@ extern Uint8 *screens[5];
 int EMSCRIPTEN_KEEPALIVE change_resolution_safe(int x, int y)
 {
 	if (x < 320) x = 320;
-    if (y < 200) y = 200;
-	if (window) {
-        SDL_SetWindowSize(window, x, y);
-    }
+	if (y < 200) y = 200;
+	if (window)
+		SDL_SetWindowSize(window, x, y);
 	return 1;
-}
-int EMSCRIPTEN_KEEPALIVE change_resolution_force(int x, int y)
-{
-    // Safety Limits
-    if (x < 320) x = 320;
-    if (y < 200) y = 200;
-
-    SDLdoUngrabMouse();
-
-    // 1. Update SRB2 Global Video State
-    vid.width = x;
-    vid.height = y;
-    vid.rowbytes = x; 
-    vid.bpp = 1;
-    vid.recalc = 1; 
-
-    // 2. Resize the SDL Window
-    // This triggers SDL to resize its internal buffers safely
-    if (window) {
-        SDL_SetWindowSize(window, x, y);
-    }
-
-    // 3. Get the new Surface pointer from SDL
-    // Instead of malloc/free, we let SDL give us the valid pointer
-    SDL_Surface *surface = SDL_GetWindowSurface(window);
-    if (surface) {
-        screens[0] = (Uint8 *)surface->pixels;
-    }
-
-    // 4. Update the Rects
-    src_rect.w = vid.width;
-    src_rect.h = vid.height;
-
-    // 5. Restart Rendering logic
-    refresh_rate = VID_GetRefreshRate();
-    
-    // Recalculate lookups (V_Init is safe now that we capped resolution to 1920)
-    V_Init(); 
-
-    return 1;
 }
 
 void EMSCRIPTEN_KEEPALIVE inject_text(const char *text)
@@ -2228,9 +2183,9 @@ void EMSCRIPTEN_KEEPALIVE inject_text(const char *text)
 		return;
 
 	event.type = ev_keydown;
-	while (text[len] != 0x00)
+	while (text[len] != '\0')
 	{
-		event.data1 = text[len];
+		event.data1 = (INT32)(unsigned char)text[len];
 		D_PostEvent(&event);
 		len++;
 	}
@@ -2239,11 +2194,11 @@ void EMSCRIPTEN_KEEPALIVE inject_text(const char *text)
 void EMSCRIPTEN_KEEPALIVE inject_keycode(int key, int type)
 {
 	event_t event;
-	if (type == true)
+	if (type == 1)
 	{
 		event.type = ev_keyup;
 	}
-	else if (type == false)
+	else if (type == 0)
 	{
 		event.type = ev_keydown;
 	}
@@ -2265,6 +2220,7 @@ void EMSCRIPTEN_KEEPALIVE SRB2_AddMouseDelta(int dx, int dy)
 	SDL_SetWindowGrab(window, SDL_TRUE);
 
 	event_t event;
+	//SDL_memset(&event, 0, sizeof(event_t));
 	event.type = ev_mouse;
 	event.data1 = 0;
 	event.data2 = dx;

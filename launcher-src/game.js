@@ -38,11 +38,11 @@ function safeSymlink(targetPath, linkPath) {
 }
 
 function ensureUserDataTree() {
-  FS.mkdirTree("/home/web_user/.srb2/addons");
-  FS.mkdirTree("/home/web_user/.srb2/logs");
+  FS.mkdirTree("/home/web_user/.srb2kart/addons");
+  FS.mkdirTree("/home/web_user/.srb2kart/logs");
   FS.mkdirTree("/addons");
-  safeSymlink("/home/web_user/.srb2", "/addons/.srb2");
-  safeSymlink("/home/web_user/.srb2", "/addons/userdata");
+  safeSymlink("/home/web_user/.srb2kart", "/addons/.srb2");
+  safeSymlink("/home/web_user/.srb2kart", "/addons/userdata");
 }
 
 async function keepAlive() {
@@ -309,6 +309,21 @@ async function startGame(options = {}) {
 
   try {
     await loadScript();
+    /*const originalCcall = Module.ccall;
+    Module.ccall = function (name, returnType, argumentTypes, argumentsList, options) {
+      debugTextDiv("WASM ccall:", name, argumentTypes, argumentsList);
+      try {
+        return originalCcall.call(this, name, returnType, argumentTypes, argumentsList, options);
+      } catch (error) {
+        debugTextDiv("WASM ccall failed:", name, {
+          returnType,
+          argumentTypes,
+          argumentsList,
+          error,
+        });
+        throw error;
+      }
+    };*/
   } catch (e) {
     dialog.alert(
       "Error loading the game, look in the console for full error. \n" + e,
@@ -332,7 +347,7 @@ window.StartedMainLoopCallback = function () {
     if (connectAddr) {
       //Javascript side patch because we can't
       //pass a connect flag into Module.arguments without causing the resize logic to crash.
-      Module.ccall('SRB2_SendGreenTerminal', 'void', ['string'], [`connect ${connectAddr}\n`]);
+      //Module.ccall('SRB2_SendGreenTerminal', 'void', ['string'], [`connect ${connectAddr}\n`]);
       connectAddr = null;
     }
   }
@@ -432,51 +447,6 @@ async function fetchMS() {
 // ----------------------------------------------------
 // THE CRITICAL FUNCTION CALLED BY C
 // ----------------------------------------------------
-window.SRB2RequestServerList = function () {
-  //dialog.alert("JS: C code requested server list...");
-
-  // 1. Clear the old list in C
-  try {
-    Module.ccall("SRB2_ClearServerList", "void", [], []);
-  } catch (e) {
-    console.error("Could not clear list:", e);
-  }
-
-  // 2. Fetch and Populate
-  fetchMS()
-    .then((data) => {
-      data.forEach((server) => {
-        Module.ccall(
-          "SRB2_AddServerToList",
-          "void",
-          [
-            "string",
-            "string",
-            "string",
-            "number",
-            "number",
-            "number",
-            "number",
-          ],
-          [
-            server.ip,
-            server.name,
-            server.version,
-            server.players,
-            server.max_players,
-            100,
-            server.gametype,
-          ],
-        );
-      });
-
-      // 3. Tell C we are done
-      Module.ccall("SRB2_FinishServerList", "void", [], []);
-    })
-    .catch((err) => {
-      console.error("JS: Error fetching servers:", err);
-    });
-};
 
 var LockMouse = () => {
   if (touchState.ingameTouch) {

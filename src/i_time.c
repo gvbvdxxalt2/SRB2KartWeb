@@ -59,65 +59,51 @@ void I_InitializeTime(void)
 
 void I_UpdateTime(fixed_t timescale)
 {
-	double ticratescaled;
-	double elapsedseconds;
-	tic_t realtics;
+    double ticratescaled;
+    double elapsedseconds;
+    tic_t realtics;
 
-	// get real tics
-	ticratescaled = (double)TICRATE * FIXED_TO_FLOAT(timescale);
+    // Guard against zero or invalid timescale
+    if (timescale <= 0)
+        timescale = FRACUNIT;
 
-	enterprecise = I_GetPreciseTime();
-	elapsedseconds = (double)(enterprecise - oldenterprecise) / I_GetPrecisePrecision();
-	tictimer += elapsedseconds;
-	while (tictimer > 1.0/ticratescaled)
-	{
-		entertic += 1;
-		tictimer -= 1.0/ticratescaled;
-	}
-	realtics = entertic - oldentertics;
-	oldentertics = entertic;
-	oldenterprecise = enterprecise;
+    ticratescaled = (double)TICRATE * FIXED_TO_FLOAT(timescale);
 
-	// Update global time state
-	g_time.time += realtics;
-	{
-		double fractional, integral;
-		fractional = modf(tictimer * ticratescaled, &integral);
-		g_time.timefrac = FLOAT_TO_FIXED(fractional);
-	}
+    enterprecise = I_GetPreciseTime();
+
+    // First-run initialization check
+    if (oldenterprecise == 0)
+        oldenterprecise = enterprecise;
+
+    elapsedseconds = (double)(enterprecise - oldenterprecise) / I_GetPrecisePrecision();
+
+    // Clamp huge deltas (e.g., browser tab unfocused or first frame start)
+    if (elapsedseconds < 0.0 || elapsedseconds > 0.5)
+        elapsedseconds = 1.0 / ticratescaled;
+
+    tictimer += elapsedseconds;
+    
+    while (tictimer > 1.0/ticratescaled)
+    {
+        entertic += 1;
+        tictimer -= 1.0/ticratescaled;
+    }
+
+    realtics = entertic - oldentertics;
+    oldentertics = entertic;
+    oldenterprecise = enterprecise;
+
+    // Update global time state
+    g_time.time += realtics;
+    {
+        double fractional, integral;
+        fractional = modf(tictimer * ticratescaled, &integral);
+        g_time.timefrac = FLOAT_TO_FIXED(fractional);
+    }
 }
 
 void I_SleepDuration(precise_t duration)
 {
-	UINT64 precision = I_GetPrecisePrecision();
-	INT32 sleepvalue = cv_sleep.value;
-	UINT64 delaygranularity;
-	precise_t cur;
-	precise_t dest;
-
-	{
-		double gran = round(((double)(precision / 1000) * sleepvalue * MIN_SLEEP_DURATION_MS));
-		delaygranularity = (UINT64)gran;
-	}
-
-	cur = I_GetPreciseTime();
-	dest = cur + duration;
-
-	// the reason this is not dest > cur is because the precise counter may wrap
-	// two's complement arithmetic is our friend here, though!
-	// e.g. cur 0xFFFFFFFFFFFFFFFE = -2, dest 0x0000000000000001 = 1
-	// 0x0000000000000001 - 0xFFFFFFFFFFFFFFFE = 3
-	while ((INT64)(dest - cur) > 0)
-	{
-		// If our cv_sleep value exceeds the remaining sleep duration, use the
-		// hard sleep function.
-		if (sleepvalue > 0 && (dest - cur) > delaygranularity)
-		{
-			I_Sleep(sleepvalue);
-		}
-
-		// Otherwise, this is a spinloop.
-
-		cur = I_GetPreciseTime();
-	}
+	(void)duration;
+	return;
 }

@@ -531,6 +531,7 @@ const char *netxcmdnames[MAXNETXCMD - 1] =
 void D_RegisterServerCommands(void)
 {
 	INT32 i;
+	CONS_Printf("Startup checkpoint: server command registration started.\n");
 	Forceskin_cons_t[0].value = -1;
 	Forceskin_cons_t[0].strvalue = "Off";
 
@@ -548,6 +549,7 @@ void D_RegisterServerCommands(void)
 		Forceskin_cons_t[i].value = 0;
 		Forceskin_cons_t[i].strvalue = NULL;
 	}
+	CONS_Printf("Startup checkpoint: server variable tables prepared.\n");
 	RegisterNetXCmd(XD_NAMEANDCOLOR, Got_NameAndColor);
 	RegisterNetXCmd(XD_WEAPONPREF, Got_WeaponPref);
 	RegisterNetXCmd(XD_MAP, Got_Mapcmd);
@@ -567,9 +569,11 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_SETUPVOTE, Got_SetupVotecmd);
 	RegisterNetXCmd(XD_MODIFYVOTE, Got_ModifyVotecmd);
 	RegisterNetXCmd(XD_PICKVOTE, Got_PickVotecmd);
+	CONS_Printf("Startup checkpoint: server network callbacks registered.\n");
 
 	// Remote Administration
 	COM_AddCommand("password", Command_Changepassword_f);
+	CONS_Printf("Startup checkpoint: password command registered.\n");
 	RegisterNetXCmd(XD_LOGIN, Got_Login);
 	COM_AddCommand("login", Command_Login_f); // useful in dedicated to kick off remote admin
 	COM_AddCommand("promote", Command_Verify_f);
@@ -579,20 +583,23 @@ void D_RegisterServerCommands(void)
 
 	COM_AddCommand("motd", Command_MotD_f);
 	RegisterNetXCmd(XD_SETMOTD, Got_MotD_f); // For remote admin
+	CONS_Printf("Startup checkpoint: remote administration registered.\n");
 
 	RegisterNetXCmd(XD_TEAMCHANGE, Got_Teamchange);
 	COM_AddCommand("serverchangeteam", Command_ServerTeamChange_f);
+	CONS_Printf("Startup checkpoint: team commands registered.\n");
 
 	RegisterNetXCmd(XD_CLEARSCORES, Got_Clearscores);
 	COM_AddCommand("clearscores", Command_Clearscores_f);
 	COM_AddCommand("map", Command_Map_f);
+	CONS_Printf("Startup checkpoint: map commands registered.\n");
 
 	COM_AddCommand("exitgame", Command_ExitGame_f);
 	COM_AddCommand("retry", Command_Retry_f);
 	COM_AddCommand("exitlevel", Command_ExitLevel_f);
 	COM_AddCommand("showmap", Command_Showmap_f);
 	COM_AddCommand("mapmd5", Command_Mapmd5_f);
-	CONS_Printf("D_RegisterServerCommands(): commands registered.\n");
+	CONS_Printf("Startup checkpoint: core server commands registered.\n");
 
 	COM_AddCommand("addfile", Command_Addfile);
 	COM_AddCommand("listwad", Command_ListWADS_f);
@@ -618,6 +625,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("showscores", Command_ShowScores_f);
 	COM_AddCommand("showtime", Command_ShowTime_f);
 	COM_AddCommand("cheats", Command_Cheats_f); // test
+	CONS_Printf("Startup checkpoint: server utility commands registered.\n");
 #ifdef _DEBUG
 	COM_AddCommand("togglemodified", Command_Togglemodified_f);
 #ifdef HAVE_BLUA
@@ -627,14 +635,14 @@ void D_RegisterServerCommands(void)
 
 	// for master server connection
 	AddMServCommands();
-	CONS_Printf("D_RegisterServerCommands(): master server registered.\n");
+	CONS_Printf("Startup checkpoint: master server commands complete.\n");
 
 	// p_mobj.c
+	CONS_Printf("Startup checkpoint: registering server variables.\n");
 	CV_RegisterVar(&cv_itemrespawntime);
 	CV_RegisterVar(&cv_itemrespawn);
 	CV_RegisterVar(&cv_flagtime);
 	CV_RegisterVar(&cv_suddendeath);
-	CONS_Printf("D_RegisterServerCommands(): initial variables registered.\n");
 
 	// misc
 	CV_RegisterVar(&cv_friendlyfire);
@@ -676,7 +684,6 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_eggmanbox);*/
 
 	K_RegisterKartStuff(); // SRB2kart
-	CONS_Printf("D_RegisterServerCommands(): kart variables registered.\n");
 
 	CV_RegisterVar(&cv_ringslinger);
 

@@ -20,9 +20,7 @@
 #include <sys/types.h>
 #endif
 
-#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#endif
 
 #ifdef __GNUC__
 #include <unistd.h> // for getcwd
@@ -81,12 +79,9 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "r_fps.h" // Frame interpolation/uncapped
 #include "keys.h"
 #include "filesrch.h" // refreshdirmenu
+#include <stdio.h>
 
-#ifdef CMAKECONFIG
 #include "config.h"
-#else
-#include "config.h.in"
-#endif
 
 #ifdef _XBOX
 #include "sdl12/SRB2XBOX/xboxhelp.h"
@@ -624,34 +619,20 @@ static void D_Display(void)
 // D_SRB2Loop
 // =========================================================================
 
-tic_t rendergametic;
-
 void D_SRB2Loop(void)
 {
-	tic_t entertic = 0, realtics = 0, rendertimeout = INFTICS;
-	static tic_t oldentertics = 0;
-	double deltatics = 0.0;
-	double deltasecs = 0.0;
-	static boolean loop_initialized = false;
-
-	boolean interp = false;
-	boolean doDisplay = false;
-
-	if (!loop_initialized)
-	{
-		loop_initialized = true;
-		if (dedicated)
-			server = true;
+	if (dedicated)
+		server = true;
 
 	// Pushing of + parameters is now done back in D_SRB2Main, not here.
 
 #ifdef _WINDOWS
-	CONS_Printf("I_StartupMouse()...\n");
-	I_DoStartupMouse();
+	//CONS_Printf("I_StartupMouse()...\n");
+	//I_DoStartupMouse();
 #endif
 
 	I_UpdateTime(cv_timescale.value);
-	oldentertics = I_GetTime();
+	/* oldentertics = I_GetTime(); */
 
 	// end of loading screen: CONS_Printf() will no more call FinishUpdate()
 	con_startup = false;
@@ -671,27 +652,41 @@ void D_SRB2Loop(void)
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
 
-	#ifdef EMSCRIPTEN
-		EM_ASM(
-			try {
-				StartedMainLoopCallback();
-			} catch (err) {
-				console.log('Faild to find StartedMainLoopCallback()');
-			}
-		);
-	#endif
+#ifdef EMSCRIPTEN
+	EM_ASM(
+		try {
+			StartedMainLoopCallback();
+		} catch (err) {
+			console.log('Faild to find StartedMainLoopCallback()');
+		}
+	);
+#endif
 
-		if (rendermode == render_soft)
-			V_DrawFixedPatch(0, 0, FRACUNIT/2, 0, (patch_t *)W_CacheLumpNum(W_GetNumForName("KARTKREW"), PU_CACHE), NULL);
-		I_FinishUpdate(); // page flip or blit buffer
+	if (rendermode == render_soft) {
+		V_DrawFixedPatch(0, 0, FRACUNIT/2, 0, (patch_t *)W_CacheLumpNum(W_GetNumForName("KARTKREW"), PU_CACHE), NULL);
+		#ifdef EMSCRIPTEN
+			EM_ASM(
+				alert("V_DrawFixedPatch() done");
+			);
+		#endif
 	}
+	I_FinishUpdate(); // page flip or blit buffer
 
-	#ifdef __EMSCRIPTEN__
-		emscripten_set_main_loop(D_SRB2Loop, 0, 1);
-	#endif
+    emscripten_set_main_loop(D_SRB2_Draw_Frame, 0, 1);
+}
 
-	for (;;)
+tic_t rendergametic;
+
+void D_SRB2_Draw_Frame(void) {
 	{
+		tic_t entertic = 0, oldentertics = 0, realtics = 0, rendertimeout = INFTICS;
+		double deltatics = 0.0;
+		double deltasecs = 0.0;
+
+		boolean interp = false;
+		boolean doDisplay = false;
+
+
 		// capbudget is the minimum precise_t duration of a single loop iteration
 		precise_t capbudget;
 		precise_t enterprecise = I_GetPreciseTime();
@@ -835,10 +830,6 @@ void D_SRB2Loop(void)
 		finishprecise = I_GetPreciseTime();
 		deltasecs = (double)((INT64)(finishprecise - enterprecise)) / I_GetPrecisePrecision();
 		deltatics = deltasecs * NEWTICRATE;
-
-#ifdef __EMSCRIPTEN__
-		return;
-#endif
 	}
 }
 
@@ -1094,6 +1085,10 @@ void D_SRB2Main(void)
 
 	INT32 pstartmap = 1;
 	boolean autostart = false;
+
+	#ifdef EMSCRIPTEN
+	fclose(stdin);
+	#endif
 
 	// Print GPL notice for our console users (Linux)
 	CONS_Printf(
@@ -1419,44 +1414,42 @@ void D_SRB2Main(void)
 	// we need the font of the console
 	CONS_Printf("HU_Init(): Setting up heads up display.\n");
 	HU_Init();
+	CONS_Printf("Startup checkpoint: HU_Init complete.\n");
 
 	COM_Init();
-	CONS_Printf("COM_Init(): done.\n");
+	CONS_Printf("Startup checkpoint: COM_Init complete.\n");
 	// libogc has a CON_Init function, we must rename SRB2's CON_Init in WII/libogc
 #ifndef _WII
 	CON_Init();
+	CONS_Printf("Startup checkpoint: CON_Init complete.\n");
 #else
 	CON_InitWii();
 #endif
-	CONS_Printf("CON_Init(): done.\n");
 
 	D_RegisterServerCommands();
-	CONS_Printf("D_RegisterServerCommands(): done.\n");
+	CONS_Printf("Startup checkpoint: server commands complete.\n");
 	D_RegisterClientCommands(); // be sure that this is called before D_CheckNetGame
-	CONS_Printf("D_RegisterClientCommands(): done.\n");
+	CONS_Printf("Startup checkpoint: network commands complete.\n");
 	R_RegisterEngineStuff();
-	CONS_Printf("R_RegisterEngineStuff(): done.\n");
 	S_RegisterSoundStuff();
-	CONS_Printf("S_RegisterSoundStuff(): done.\n");
+	CONS_Printf("Startup checkpoint: engine and sound commands complete.\n");
 
 	I_RegisterSysCommands();
-	CONS_Printf("I_RegisterSysCommands(): done.\n");
+	CONS_Printf("Startup checkpoint: system commands complete.\n");
 
 	//--------------------------------------------------------- CONFIG.CFG
 	M_FirstLoadConfig(); // WARNING : this do a "COM_BufExecute()"
-	CONS_Printf("M_FirstLoadConfig(): done.\n");
+	CONS_Printf("Startup checkpoint: first config complete.\n");
 
 	G_LoadGameData();
-	CONS_Printf("G_LoadGameData(): done.\n");
+	CONS_Printf("Startup checkpoint: game data complete.\n");
 
 #if (defined (__unix__) && !defined (MSDOS)) || defined (UNIXCOMMON) || defined (HAVE_SDL)
 	VID_PrepareModeList(); // Regenerate Modelist according to cv_fullscreen
 #endif
-	CONS_Printf("VID_PrepareModeList(): done.\n");
 
 	// set user default mode or mode set at cmdline
 	SCR_CheckDefaultMode();
-	CONS_Printf("SCR_CheckDefaultMode(): done.\n");
 
 	wipegamestate = gamestate;
 

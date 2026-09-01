@@ -29,12 +29,12 @@ function sendInput(nameid, down) {
     if (!!keyState[number] == !!downBool) {
         return;
     }
-    Module.ccall(
+    /*Module.ccall(
         'SRB2_SetDirectAction',
         'void',
         ['number','number'],
         [number, downNumber]
-    );
+    );*/
 
     if (downBool) {
         keyState[number] = downBool; 

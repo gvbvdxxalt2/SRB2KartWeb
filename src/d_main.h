@@ -25,13 +25,8 @@ extern boolean usehome; //Alam: which path?
 extern const char *pandf; //Alam: how to path?
 extern char srb2path[256]; //Alam: SRB2's Home
 
-// The browser build registers D_SRB2Loop as a per-frame callback.
-#ifdef __EMSCRIPTEN__
-void D_SRB2Loop(void);
-#else
 // the infinite loop of D_SRB2Loop() called from win_main for windows version
 void D_SRB2Loop(void) FUNCNORETURN;
-#endif
 
 //
 // D_SRB2Main()
@@ -39,6 +34,8 @@ void D_SRB2Loop(void) FUNCNORETURN;
 // calls all startup code, parses command line options.
 //
 void D_SRB2Main(void);
+
+void D_SRB2_Draw_Frame(void);
 
 // Called by IO functions when input is detected.
 void D_PostEvent(const event_t *ev);
