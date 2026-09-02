@@ -611,6 +611,21 @@ if (false) {
   });
 }
 
+var textarea = document.createElement("textarea");
+textarea.style.width = "300px";
+textarea.style.height = "300px";
+textarea.style.background = "rgba(0,0,0,0.5)";
+textarea.style.color = "green";
+textarea.style.top = "0";
+textarea.style.left = "0";
+textarea.style.position = "fixed";
+document.body.append(textarea);
+
+async function debugTextDiv(...content) {
+  textarea.textContent += content.join(" ") + "\n";
+}
+window.debugTextDiv = debugTextDiv;
+
 // 1. Synchronous runtime errors & resource failures
 window.addEventListener('error', (event) => {
   // Check if it's a resource loading error (like a failed <img> or <script>)
@@ -619,7 +634,23 @@ window.addEventListener('error', (event) => {
     return;
   }
 
-  window.alert('Uncaught JS Error:' + event.message + ' at ' + event.filename + ':' + event.lineno + ':' + event.colno);
+  // Extract the full stack trace if available
+  const errorObj = event.error;
+  const stackTrace = errorObj && errorObj.stack ? errorObj.stack : null;
+
+  const errorData = {
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    stack: stackTrace
+  };
+
+  // Log the complete error object with stack trace to console
+  console.error('Captured JS Error:', errorData);
+
+  // Example alert incorporating the stack trace (or first few lines)
+  window.alert(`Uncaught JS Error: ${event.message}\n\nStack Trace:\n${stackTrace || 'No stack available'}`);
 }, true);
 
 window.addEventListener('unhandledrejection', (event) => {

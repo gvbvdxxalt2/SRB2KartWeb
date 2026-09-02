@@ -584,3 +584,9 @@ target_link_options(SRB2SDL2 PRIVATE
     "-sINITIAL_MEMORY=268435456" # Starts at 256MB
     "-sALLOW_MEMORY_GROWTH=1"
 )
+
+add_link_options(-sASSERTIONS=2)
+add_link_options(-g)
+
+# Globally remove the definition
+remove_definitions(-DNONET)

@@ -35,21 +35,6 @@
 #include <emscripten.h>
 #include <stdio.h> 
 
-#define MAX_LOOPBACK_PACKETS 32
-
-typedef struct {
-    unsigned char data[MAXPACKETLENGTH];
-    int length;
-} loopback_packet_t;
-
-static volatile loopback_packet_t loopback_queue[MAX_LOOPBACK_PACKETS];
-static volatile int loopback_head = 0;
-static volatile int loopback_tail = 0;
-
-static int NextLoopbackIndex(int index) { 
-    return (index + 1) % MAX_LOOPBACK_PACKETS; 
-}
-
 #define MAX_QUEUED_PACKETS 7000
 #define MAX_PACKET_SIZE 7000
 
@@ -199,7 +184,7 @@ static boolean NET_cmpaddr(IPaddress* a, IPaddress* b)
 static boolean NET_CanGet(void)
 {
 #ifdef EMSCRIPTEN
-    return (loopback_head != loopback_tail) || (queue_head != queue_tail);
+    return (queue_head != queue_tail);
 #else
     return myset?(SDLNet_CheckSockets(myset,0)  == 1):false;
 #endif
@@ -233,8 +218,8 @@ static INT32 NET_WebToNode(INT32 relayid)
         clientaddress[newnode].host = 0; 
         clientaddress[newnode].reason[0] = '\0';
         nodeconnected[newnode] = true; 
-        NET_bannednode[newnode].banid = 0;
-        NET_bannednode[newnode].timeleft = 0;
+        NET_bannednode[newnode].banid = SIZE_MAX;
+        NET_bannednode[newnode].timeleft = NO_BAN_TIME;
         return newnode;
     }
     return -1; 
@@ -267,8 +252,8 @@ void SRB2_NetworkClosed(int relay_id) {
     nodeconnected[node] = false;
     nodeingame[node] = false;
 
-    NET_bannednode[node].banid = 0;
-    NET_bannednode[node].timeleft = 0;
+    NET_bannednode[node].banid = SIZE_MAX;
+    NET_bannednode[node].timeleft = NO_BAN_TIME;
 }
 #endif
 
@@ -278,22 +263,6 @@ void SRB2_NetworkClosed(int relay_id) {
 static boolean NET_Get(void)
 {
 #ifdef EMSCRIPTEN
-
-// 1. Process local loopback first
-    if (loopback_head != loopback_tail) {
-        int tail = loopback_tail;
-        loopback_packet_t *pkt = (loopback_packet_t*)&loopback_queue[tail];
-
-        mypacket.len = pkt->length;
-        memcpy(mypacket.data, pkt->data, pkt->length);
-
-        doomcom->remotenode = 0; // Identifies as local loopback
-        doomcom->datalength = mypacket.len;
-
-        loopback_tail = NextLoopbackIndex(tail);
-        return true;
-    }
-
     if (queue_head == queue_tail) {
         doomcom->remotenode = -1;
         return false;
@@ -334,11 +303,14 @@ static boolean NET_Get(void)
         // =========================================================
 
         // Check Ban on every packet silently
-        for (size_t i = 0; i < numbans; i++) {
-            if (NET_cmpaddr(&clientaddress[node], &banned[i])) {
-                // Ban Match Found - Enforce Kick
-                NET_bannednode[node].banid = i + 1;
-                break;
+        // Check Ban on every packet silently (Ignore node 0 / local loopback)
+        if (node > 0) {
+            for (size_t i = 0; i < numbans; i++) {
+                if (banned[i].host != 0 && NET_cmpaddr(&clientaddress[node], &banned[i])) {
+                    // Ban Match Found - Enforce Kick
+                    NET_bannednode[node].banid = i;
+                    break;
+                }
             }
         }
 
@@ -354,6 +326,7 @@ static boolean NET_Get(void)
         doomcom->remotenode = node;
         doomcom->datalength = mypacket.len;
         
+        CONS_Printf("NET_Get: Forwarding packet of length %d to node %d\n", mypacket.len, node);
         queue_tail = NextIndex(tail);
         return true;
     }
@@ -388,19 +361,11 @@ static void NET_Send(void)
 {
     if (!doomcom->remotenode) return;
     mypacket.len = doomcom->datalength;
+    CONS_Printf("NET_Send: Sending packet of length %d\n", mypacket.len);
 
 #ifdef EMSCRIPTEN
     // Route local node (0) directly to loopback queue
-    if (doomcom->remotenode == 0) {
-        int next_head = NextLoopbackIndex(loopback_head);
-        if (next_head == loopback_tail) return; // Queue full, drop packet
-
-        memcpy((void*)loopback_queue[loopback_head].data, mypacket.data, mypacket.len);
-        loopback_queue[loopback_head].length = mypacket.len;
-        loopback_head = next_head;
-        return;
-    }
-
+    
     if (doomcom->remotenode < 0 || doomcom->remotenode >= MAXNETNODES) return;
     int target_relay_id = clientaddress[doomcom->remotenode].relayid;
     SRB2_NetworkSend(target_relay_id, mypacket.data, mypacket.len);
@@ -418,15 +383,15 @@ static void NET_FreeNodenum(INT32 numnode)
 #endif
     memset(&clientaddress[numnode], 0, sizeof (IPaddress));
     nodeconnected[numnode] = false; 
-    NET_bannednode[numnode].banid = 0;
-    NET_bannednode[numnode].timeleft = 0;
+    NET_bannednode[numnode].banid = SIZE_MAX;
+    NET_bannednode[numnode].timeleft = NO_BAN_TIME;
 }
 
 static UDPsocket NET_Socket(void)
 {
 #ifdef EMSCRIPTEN
-    static int dummy_socket;
-    return (UDPsocket)&dummy_socket;
+    static int emscripten_socket_initialized;
+    return (UDPsocket)&emscripten_socket_initialized;
 #else
     UDPsocket temp = NULL;
     Uint16 portnum = 0;
@@ -465,7 +430,7 @@ static void I_InitSDLNetDriver(void)
     if (SDLNet_Init() == -1) return; 
 #endif
     D_SetDoomcom();
-    mypacket.data = doomcom->data;
+    mypacket.data = (UINT8 *)doomcom->data;
     init_SDLNet_driver = true;
 }
 
@@ -490,7 +455,7 @@ static SINT8 NET_NetMakeNodewPort(const char *hostname, const char *port)
     IPaddress hostnameIP;
 
 #ifdef EMSCRIPTEN
-    if (SRB2_ConnectTo(hostname, port) != 0) return -1;
+    SRB2_ConnectTo(hostname, port);
     newnode = 1; 
     hostnameIP.relayid = hostname ? atoi(hostname) : 0;
     hostnameIP.port = 0;
@@ -504,8 +469,8 @@ static SINT8 NET_NetMakeNodewPort(const char *hostname, const char *port)
     }
     M_Memcpy(&clientaddress[newnode], &hostnameIP, sizeof(IPaddress));
     nodeconnected[newnode] = true; 
-    NET_bannednode[newnode].banid = 0;
-    NET_bannednode[newnode].timeleft = 0;
+    NET_bannednode[newnode].banid = SIZE_MAX;
+    NET_bannednode[newnode].timeleft = NO_BAN_TIME;
     return (SINT8)newnode;
 #else
     UINT16 portnum = sock_port;
@@ -524,9 +489,11 @@ static boolean NET_OpenSocket(void)
     memset(clientaddress, 0, sizeof (clientaddress));
     for(int i=0; i<MAXNETNODES+1; i++) {
         nodeconnected[i] = false;
-        NET_bannednode[i].banid = 0;
-        NET_bannednode[i].timeleft = 0;
+        NET_bannednode[i].banid = SIZE_MAX;
+        NET_bannednode[i].timeleft = NO_BAN_TIME;
     }
+    NET_bannednode[0].banid = SIZE_MAX;
+    NET_bannednode[0].timeleft = NO_BAN_TIME;
 
     I_NetSend = NET_Send;
     I_NetGet = NET_Get;
@@ -536,9 +503,11 @@ static boolean NET_OpenSocket(void)
 
     NET_CloseSocket();
     mysocket = NET_Socket();
+    CONS_Printf("NET_OpenSocket: Creating socket on port %d\n", sock_port);
 
     #ifdef EMSCRIPTEN
         if (server) SRB2_ListenOn(sock_port);
+        return true;
     #endif
 
     if (!mysocket) return false;
@@ -602,6 +571,85 @@ static void NET_ClearBans(void)
 static boolean NET_CanSend(void)
 {
     return true;
+}
+
+// -------------------------------------------------------------------------
+// BAN SYSTEM FUNCTIONS (Signature-Matched to i_net.h)
+// -------------------------------------------------------------------------
+
+static const char *NET_GetBanMask(size_t ban)
+{
+    static char s[16];
+    if (ban >= numbans)
+        return NULL;
+    
+    // Convert mask value to string or return default host mask
+    snprintf(s, sizeof(s), "%u", 32); 
+    return s;
+}
+
+static const char *NET_GetBanUsername(size_t ban)
+{
+    (void)ban;
+    return NULL; // Return NULL if username tracking isn't stored in banned[]
+}
+
+static const char *NET_GetBanReason(size_t ban)
+{
+#ifdef EMSCRIPTEN
+    if (ban < numbans && banned[ban].reason[0] != '\0')
+        return banned[ban].reason;
+#endif
+    return "Banned by server operator";
+}
+
+static time_t NET_GetUnbanTime(size_t ban)
+{
+    (void)ban;
+    return NO_BAN_TIME; // Default to permanent unless timed bans are set
+}
+
+static boolean NET_SetBanUsername(const char *username)
+{
+    (void)username;
+    return true;
+}
+
+static boolean NET_SetBanReason(const char *reason)
+{
+    if (reason == NULL || strlen(reason) == 0)
+	{
+		reason = "No reason given";
+	}
+
+	if (banned[numbans - 1].reason)
+	{
+		Z_Free(banned[numbans - 1].reason);
+		banned[numbans - 1].reason = NULL;
+	}
+
+	banned[numbans - 1].reason = Z_StrDup(reason);
+	return true;
+}
+
+static boolean NET_SetUnbanTime(time_t timestamp)
+{
+    (void)timestamp;
+    return true;
+}
+
+// -------------------------------------------------------------------------
+// HOLE PUNCHING STUBS (Prevents RenewHolePunch crash in NetUpdate)
+// -------------------------------------------------------------------------
+
+static void NET_RegisterHolePunch(void)
+{
+    // No-op for Emscripten transport layer
+}
+
+static void NET_RequestHolePunch(INT32 node)
+{
+    (void)node;
 }
 
 boolean I_InitNetwork(void)
@@ -682,22 +730,32 @@ boolean I_InitNetwork(void)
     mypacket.maxlen = hardware_MAXPACKETLENGTH;
     I_NetCanGet = NET_CanGet;
     I_NetCanSend = NET_CanSend;
-
     I_NetGet = NET_Get;
     I_NetSend = NET_Send;
-
     I_NetFreeNodenum = NET_FreeNodenum;
     I_NetCloseSocket = NET_CloseSocket;
-
-    I_GetNodeAddress = NET_GetNodeAddress;
-    I_GetBanAddress = NET_GetBanAddress;
-    I_SetBanAddress = NET_SetBanAddress;
-
     I_NetOpenSocket = NET_OpenSocket;
     I_NetMakeNodewPort = NET_NetMakeNodewPort;
 
+    // Hole Punching Pointers (Prevents WASM signature mismatch crash)
+    I_NetRegisterHolePunch = NET_RegisterHolePunch;
+    I_NetRequestHolePunch = NET_RequestHolePunch;
+
+    // Address Lookup
+    I_GetNodeAddress = NET_GetNodeAddress;
+    I_GetBanAddress = NET_GetBanAddress;
+
+    // Extended Ban System Interface
     I_Ban = NET_Ban;
     I_ClearBans = NET_ClearBans;
+    I_SetBanAddress = NET_SetBanAddress;
+    I_GetBanMask = NET_GetBanMask;
+    I_GetBanUsername = NET_GetBanUsername;
+    I_GetBanReason = NET_GetBanReason;
+    I_GetUnbanTime = NET_GetUnbanTime;
+    I_SetBanUsername = NET_SetBanUsername;
+    I_SetBanReason = NET_SetBanReason;
+    I_SetUnbanTime = NET_SetUnbanTime;
 
     bannednode = NET_bannednode;
     return ret;

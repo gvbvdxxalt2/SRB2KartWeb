@@ -10,6 +10,10 @@
 /// \file  d_clisrv.c
 /// \brief SRB2 Network game communication and protocol, all OS independent parts.
 
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#endif
+
 #if !defined (UNDER_CE)
 #include <time.h>
 #endif
@@ -6176,7 +6180,7 @@ FILESTAMP
 FILESTAMP
 
 #ifdef MASTERSERVER
-	MasterClient_Ticker();
+	//MasterClient_Ticker();
 #endif
 
 	if (netgame && serverrunning)
@@ -6283,8 +6287,9 @@ void NetUpdate(void)
 
 	Local_Maketic(realtics); // make local tic, and call menu?
 
-	if (server)
+	if (server) {
 		CL_SendClientCmd(); // send it
+	}
 FILESTAMP
 	GetPackets(); // get packet from client or from server
 FILESTAMP
@@ -6292,7 +6297,7 @@ FILESTAMP
 	// the server send before because in single player is beter
 
 #ifdef MASTERSERVER
-	MasterClient_Ticker(); // Acking the Master Server
+	//MasterClient_Ticker(); // Acking the Master Server
 #endif
 
 	if (netgame && serverrunning)
@@ -6302,8 +6307,10 @@ FILESTAMP
 
 	if (client)
 	{
-		if (!resynch_local_inprogress)
+		if (!resynch_local_inprogress) {
+
 			CL_SendClientCmd(); // Send tic cmd
+		}
 		hu_resynching = resynch_local_inprogress;
 	}
 	else

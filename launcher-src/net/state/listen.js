@@ -188,6 +188,7 @@ class ListenState {
   }
 
   handleSRB2Send(data, rid) {
+    window.alert("Trying to send on "+rid);
     var ch = this.connections[rid];
     if (!ch) {
       return;
