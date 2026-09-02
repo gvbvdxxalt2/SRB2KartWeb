@@ -8,6 +8,7 @@ elements.appendElementsFromJSON(document.body, require("./elms"));
 var gameCanvas = elements.getGPId("gameCanvas");
 var launcherMain = elements.getGPId("launcherMain");
 var loaderMain = elements.getGPId("loaderMain");
+var dialog = require("./dialog.js");
 
 gameCanvas.hidden = true;
 loaderMain.hidden = true;
