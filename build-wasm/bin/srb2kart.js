@@ -883,6 +883,20 @@ function _SRB2_NetworkSend(node_id, data_ptr, len) {
   return 1;
 }
 
+function _SRB2_ServerInfoResponse(serverName, maxPlayers, map, mapTitle, ingame_players, playerNameList) {
+  if (window.SRB2_ServerInfoResponse) {
+    return window.SRB2_ServerInfoResponse({
+      name: UTF8ToString(serverName),
+      map: UTF8ToString(map),
+      mapTitle: UTF8ToString(mapTitle),
+      ingamePlayers: ingame_players,
+      playerNames: UTF8ToString(playerNameList),
+      maxPlayers: +maxPlayers || 0
+    });
+  }
+  return 1;
+}
+
 var ___call_sighandler = (fp, sig) => (a1 => dynCall_vi(fp, a1))(sig);
 
 var ___handle_stack_overflow = requested => {
@@ -10990,6 +11004,8 @@ var _SRB2_NetworkClosed = Module["_SRB2_NetworkClosed"] = makeInvalidEarlyAccess
 
 var _SRB2_ForceCloseSocket = Module["_SRB2_ForceCloseSocket"] = makeInvalidEarlyAccess("_SRB2_ForceCloseSocket");
 
+var _SRB2_LOG = Module["_SRB2_LOG"] = makeInvalidEarlyAccess("_SRB2_LOG");
+
 var _change_resolution_safe = Module["_change_resolution_safe"] = makeInvalidEarlyAccess("_change_resolution_safe");
 
 var _inject_text = Module["_inject_text"] = makeInvalidEarlyAccess("_inject_text");
@@ -11009,6 +11025,8 @@ var _mouse_wheel = Module["_mouse_wheel"] = makeInvalidEarlyAccess("_mouse_wheel
 var _mouse_wheel_xy = Module["_mouse_wheel_xy"] = makeInvalidEarlyAccess("_mouse_wheel_xy");
 
 var _lock_mouse = Module["_lock_mouse"] = makeInvalidEarlyAccess("_lock_mouse");
+
+var _SRB2_GetServerInfo = Module["_SRB2_GetServerInfo"] = makeInvalidEarlyAccess("_SRB2_GetServerInfo");
 
 var _emscripten_stack_get_end = makeInvalidEarlyAccess("_emscripten_stack_get_end");
 
@@ -11138,6 +11156,7 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports["SRB2_NetworkReceive"] != "undefined", "missing Wasm export: SRB2_NetworkReceive");
   assert(typeof wasmExports["SRB2_NetworkClosed"] != "undefined", "missing Wasm export: SRB2_NetworkClosed");
   assert(typeof wasmExports["SRB2_ForceCloseSocket"] != "undefined", "missing Wasm export: SRB2_ForceCloseSocket");
+  assert(typeof wasmExports["SRB2_LOG"] != "undefined", "missing Wasm export: SRB2_LOG");
   assert(typeof wasmExports["change_resolution_safe"] != "undefined", "missing Wasm export: change_resolution_safe");
   assert(typeof wasmExports["inject_text"] != "undefined", "missing Wasm export: inject_text");
   assert(typeof wasmExports["inject_keycode"] != "undefined", "missing Wasm export: inject_keycode");
@@ -11148,6 +11167,7 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports["mouse_wheel"] != "undefined", "missing Wasm export: mouse_wheel");
   assert(typeof wasmExports["mouse_wheel_xy"] != "undefined", "missing Wasm export: mouse_wheel_xy");
   assert(typeof wasmExports["lock_mouse"] != "undefined", "missing Wasm export: lock_mouse");
+  assert(typeof wasmExports["SRB2_GetServerInfo"] != "undefined", "missing Wasm export: SRB2_GetServerInfo");
   assert(typeof wasmExports["emscripten_stack_get_end"] != "undefined", "missing Wasm export: emscripten_stack_get_end");
   assert(typeof wasmExports["emscripten_stack_get_base"] != "undefined", "missing Wasm export: emscripten_stack_get_base");
   assert(typeof wasmExports["setThrew"] != "undefined", "missing Wasm export: setThrew");
@@ -11215,6 +11235,7 @@ function assignWasmExports(wasmExports) {
   _SRB2_NetworkReceive = Module["_SRB2_NetworkReceive"] = createExportWrapper("SRB2_NetworkReceive", wasmExports["SRB2_NetworkReceive"], 4);
   _SRB2_NetworkClosed = Module["_SRB2_NetworkClosed"] = createExportWrapper("SRB2_NetworkClosed", wasmExports["SRB2_NetworkClosed"], 1);
   _SRB2_ForceCloseSocket = Module["_SRB2_ForceCloseSocket"] = createExportWrapper("SRB2_ForceCloseSocket", wasmExports["SRB2_ForceCloseSocket"], 0);
+  _SRB2_LOG = Module["_SRB2_LOG"] = createExportWrapper("SRB2_LOG", wasmExports["SRB2_LOG"], 1);
   _change_resolution_safe = Module["_change_resolution_safe"] = createExportWrapper("change_resolution_safe", wasmExports["change_resolution_safe"], 2);
   _inject_text = Module["_inject_text"] = createExportWrapper("inject_text", wasmExports["inject_text"], 1);
   _inject_keycode = Module["_inject_keycode"] = createExportWrapper("inject_keycode", wasmExports["inject_keycode"], 2);
@@ -11225,6 +11246,7 @@ function assignWasmExports(wasmExports) {
   _mouse_wheel = Module["_mouse_wheel"] = createExportWrapper("mouse_wheel", wasmExports["mouse_wheel"], 1);
   _mouse_wheel_xy = Module["_mouse_wheel_xy"] = createExportWrapper("mouse_wheel_xy", wasmExports["mouse_wheel_xy"], 2);
   _lock_mouse = Module["_lock_mouse"] = createExportWrapper("lock_mouse", wasmExports["lock_mouse"], 0);
+  _SRB2_GetServerInfo = Module["_SRB2_GetServerInfo"] = createExportWrapper("SRB2_GetServerInfo", wasmExports["SRB2_GetServerInfo"], 0);
   _emscripten_stack_get_end = wasmExports["emscripten_stack_get_end"];
   _emscripten_stack_get_base = wasmExports["emscripten_stack_get_base"];
   _setThrew = createExportWrapper("setThrew", wasmExports["setThrew"], 2);
@@ -11289,6 +11311,7 @@ var wasmImports = {
   /** @export */ SRB2_InitNetwork: _SRB2_InitNetwork,
   /** @export */ SRB2_ListenOn: _SRB2_ListenOn,
   /** @export */ SRB2_NetworkSend: _SRB2_NetworkSend,
+  /** @export */ SRB2_ServerInfoResponse: _SRB2_ServerInfoResponse,
   /** @export */ __call_sighandler: ___call_sighandler,
   /** @export */ __handle_stack_overflow: ___handle_stack_overflow,
   /** @export */ __syscall_bind: ___syscall_bind,

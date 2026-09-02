@@ -571,6 +571,7 @@ boolean I_InitNetwork(void)
     I_AddExitFunc(I_ShutdownSDLNetDriver);
     if (!init_SDLNet_driver) return false;
 #ifdef EMSCRIPTEN
+    boolean ret = true;
     SRB2_InitNetwork();
 #endif
     if (M_CheckParm("-udpport")) {
@@ -652,6 +653,7 @@ boolean I_InitNetwork(void)
     I_SetBanAddress = NET_SetBanAddress;
 
     I_NetOpenSocket = NET_OpenSocket;
+    I_NetMakeNodewPort = NET_NetMakeNodewPort;
 
     I_Ban = NET_Ban;
     I_ClearBans = NET_ClearBans;
@@ -662,5 +664,12 @@ boolean I_InitNetwork(void)
     if ( M_CheckParm ("-net") ) I_Error("-net not supported\n");
     return false;
 #endif
+}
+#endif
+
+#ifdef EMSCRIPTEN
+EMSCRIPTEN_KEEPALIVE
+void SRB2_LOG(char *textlog) {
+    CONS_Printf(M_GetText(textlog));
 }
 #endif

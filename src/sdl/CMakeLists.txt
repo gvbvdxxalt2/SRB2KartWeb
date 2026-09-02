@@ -42,6 +42,7 @@ set(SRB2_SDL2_SOURCES
 	i_ttf.c
 	i_video.c
 	i_threads.c
+	emscripten_serverinfo.c
 	#IMG_xpm.c
 	ogl_sdl.c
 

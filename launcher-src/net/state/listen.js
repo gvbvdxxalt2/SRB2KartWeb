@@ -9,7 +9,7 @@ class ListenState {
   }
 
   constructor(wsHost, isPublic = true) {
-    window.alert(`Server trying to listen on ${address}:${port}`);
+    window.alert(`Server trying to listen`);
     this.listen = true;
     this.wsHost = wsHost;
     this.isOpen = false;
