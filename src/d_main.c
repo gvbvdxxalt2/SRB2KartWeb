@@ -664,11 +664,6 @@ void D_SRB2Loop(void)
 
 	if (rendermode == render_soft) {
 		V_DrawFixedPatch(0, 0, FRACUNIT/2, 0, (patch_t *)W_CacheLumpNum(W_GetNumForName("KARTKREW"), PU_CACHE), NULL);
-		#ifdef EMSCRIPTEN
-			EM_ASM(
-				alert("V_DrawFixedPatch() done");
-			);
-		#endif
 	}
 	I_FinishUpdate(); // page flip or blit buffer
 
@@ -676,10 +671,12 @@ void D_SRB2Loop(void)
 }
 
 tic_t rendergametic;
+static tic_t oldentertics = 0;
+static tic_t rendertimeout = INFTICS;
+tic_t entertic = 0, realtics = 0;
 
 void D_SRB2_Draw_Frame(void) {
 	{
-		tic_t entertic = 0, oldentertics = 0, realtics = 0, rendertimeout = INFTICS;
 		double deltatics = 0.0;
 		double deltasecs = 0.0;
 

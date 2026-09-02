@@ -69,13 +69,13 @@ module.exports = () => {
     }),
     new HtmlWebpackPlugin({
       filename: `index.html`,
-      title: `Sonic Robo Blast 2 Web`,
+      title: `SRB2Kart Web`,
       template: "./launcher-src/base_html.html",
       chunks: ["launcher"],
     }),
     new HtmlWebpackPlugin({
       filename: `file.html`,
-      title: `Sonic Robo Blast 2 Web - File Manager`,
+      title: `SRB2Kart Web - File Manager`,
       template: "./launcher-src/base_html.html",
       chunks: ["filemanager"],
     }),

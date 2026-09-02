@@ -172,6 +172,8 @@ extern boolean (*I_SetBanUsername) (const char *username);
 extern boolean (*I_SetBanReason) (const char *reason);
 extern boolean (*I_SetUnbanTime) (time_t timestamp);
 
+extern INT32 net_bandwidth;
+
 typedef struct
 {
 	size_t banid;

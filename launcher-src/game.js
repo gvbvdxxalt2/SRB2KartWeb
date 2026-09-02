@@ -179,7 +179,7 @@ async function initGame() {
 
   await downloadAndSaveAssets();
 
-  loaderContent.textContent = "SRB2 is starting...";
+  loaderContent.textContent = "SRB2Kart is starting...";
 
   keepAlive(); // Try to keep the screen awake while playing
 
@@ -245,20 +245,6 @@ window.ChangeResolution = (x, y) => {
   }
 };
 
-var textarea = document.createElement("textarea");
-textarea.style.width = "300px";
-textarea.style.height = "300px";
-textarea.style.background = "rgba(0,0,0,0.5)";
-textarea.style.color = "green";
-textarea.style.top = "0";
-textarea.style.left = "0";
-textarea.style.position = "fixed";
-document.body.append(textarea);
-
-async function debugTextDiv(...content) {
-  textarea.textContent += content.join(" ") + "\n";
-}
-
 async function startGame(options = {}) {
   loaderMain.hidden = false;
   launcherMain.hidden = true;
@@ -298,8 +284,8 @@ async function startGame(options = {}) {
   Module.arguments.push("CUSTOM");*/
 
   Module.noInitialRun = true;
-  Module.print = debugTextDiv;
-  Module.printErr = debugTextDiv;
+  Module.print = console.log;
+  Module.printErr = console.log;
   Module.canvas = gameCanvas;
   Module.onRuntimeInitialized = initGame;
   Module.pauseOnVisibilityChange = false;
@@ -328,7 +314,7 @@ async function startGame(options = {}) {
     dialog.alert(
       "Error loading the game, look in the console for full error. \n" + e,
     );
-    console.error("SRB2 Load error: ", e);
+    console.error("SRB2Kart Load error: ", e);
     return;
   }
 }

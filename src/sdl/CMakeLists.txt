@@ -409,3 +409,8 @@ else()
 	message(WARNING "SDL2 was not found, so the SDL2 target will not be available.")
 	set(SRB2_SDL2_AVAILABLE NO PARENT_SCOPE)
 endif()
+
+
+if (EMSCRIPTEN)
+	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_SDLNET)
+endif()

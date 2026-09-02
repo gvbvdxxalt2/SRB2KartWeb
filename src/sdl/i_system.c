@@ -2967,12 +2967,23 @@ static Uint64 timer_frequency;
 
 precise_t I_GetPreciseTime(void)
 {
-	return SDL_GetPerformanceCounter();
+#ifdef __EMSCRIPTEN__
+    // emscripten_get_now() returns milliseconds as a double.
+    // Multiply by 1000 to convert to microseconds for high precision integer math.
+    return (precise_t)(emscripten_get_now() * 1000.0);
+#else
+    return SDL_GetPerformanceCounter();
+#endif
 }
 
 UINT64 I_GetPrecisePrecision(void)
 {
-	return SDL_GetPerformanceFrequency();
+#ifdef __EMSCRIPTEN__
+    // 1,000,000 microseconds per second
+    return 1000000;
+#else
+    return SDL_GetPerformanceFrequency();
+#endif
 }
 
 static UINT32 frame_rate;

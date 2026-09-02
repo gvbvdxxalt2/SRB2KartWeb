@@ -561,12 +561,11 @@ endif()
 # Injecting an arbitrary JS library here destabilizes the browser build and masks the
 # underlying compatibility issues that lead to the crashy Web configuration.
 
-
 target_link_options(SRB2SDL2 PRIVATE
 	"-sUSE_SDL=2"
     "-sASYNCIFY"
     "-lidbfs.js"
-    "-sEXPORTED_RUNTIME_METHODS=['callMain','FS','ccall','cwrap','IDBFS','HEAPU8']"
+    "-sEXPORTED_RUNTIME_METHODS=['callMain','FS','ccall','cwrap','IDBFS','HEAPU8','wasmMemory']"
     "-sEXPORTED_FUNCTIONS=['_main','_free','_malloc']"
 	"-sUSE_SDL_MIXER=2"
 	"-sSDL2_MIXER_FORMATS=['ogg','wav']"

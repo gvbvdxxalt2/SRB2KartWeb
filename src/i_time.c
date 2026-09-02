@@ -59,54 +59,57 @@ void I_InitializeTime(void)
 
 void I_UpdateTime(fixed_t timescale)
 {
-    double ticratescaled;
+    uint64_t precise_freq;
+    uint64_t current_time;
     double elapsedseconds;
-    tic_t realtics;
+    tic_t realtics = 0;
 
     // Guard against zero or invalid timescale
     if (timescale <= 0)
         timescale = FRACUNIT;
 
-    ticratescaled = (double)TICRATE * FIXED_TO_FLOAT(timescale);
-
-    enterprecise = I_GetPreciseTime();
+    precise_freq = I_GetPrecisePrecision();
+    current_time = I_GetPreciseTime();
 
     // First-run initialization check
-    if (oldenterprecise == 0)
-        oldenterprecise = enterprecise;
+    if (oldenterprecise == 0) {
+        oldenterprecise = current_time;
+        return;
+    }
 
-    elapsedseconds = (double)(enterprecise - oldenterprecise) / I_GetPrecisePrecision();
+    elapsedseconds = (double)(current_time - oldenterprecise) / (double)precise_freq;
 
-    #ifdef EMSCRIPTEN
-    // Cap maximum delta time per frame to prevent giant time jumps on tab resume
+#ifdef __EMSCRIPTEN__
+    // Cap maximum delta time per frame to prevent giant time jumps (e.g. tab unfocused)
     if (elapsedseconds > 0.15) {
-        elapsedseconds = 0.15; // Treat tab return as a maximum ~100ms frame
+        elapsedseconds = 0.15;
     }
-    #endif
+#endif
 
-    // Clamp huge deltas (e.g., browser tab unfocused or first frame start)
-    if (elapsedseconds < 0.0 || elapsedseconds > 0.5)
-        elapsedseconds = 1.0 / ticratescaled;
+    // Clamp invalid or huge time deltas
+    if (elapsedseconds < 0.0 || elapsedseconds > 0.5) {
+        elapsedseconds = 1.0 / (double)TICRATE;
+    }
 
+    // Accumulate real time elapsed into a precise sub-tic accumulator
     tictimer += elapsedseconds;
-    
-    while (tictimer > 1.0/ticratescaled)
+
+    // Calculate how many fixed 35Hz tics have passed
+    double tic_duration = 1.0 / ((double)TICRATE * FIXED_TO_FLOAT(timescale));
+
+    while (tictimer >= tic_duration)
     {
-        entertic += 1;
-        tictimer -= 1.0/ticratescaled;
+        realtics++;
+        tictimer -= tic_duration;
     }
 
-    realtics = entertic - oldentertics;
-    oldentertics = entertic;
-    oldenterprecise = enterprecise;
-
-    // Update global time state
+    // Update global game timing state
     g_time.time += realtics;
-    {
-        double fractional, integral;
-        fractional = modf(tictimer * ticratescaled, &integral);
-        g_time.timefrac = FLOAT_TO_FIXED(fractional);
-    }
+    
+    // Calculate fractional time for frame interpolation/rendering
+    g_time.timefrac = FLOAT_TO_FIXED(tictimer / tic_duration);
+
+    oldenterprecise = current_time;
 }
 
 void I_SleepDuration(precise_t duration)

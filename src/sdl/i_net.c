@@ -18,10 +18,13 @@
 #include "../m_argv.h"
 #include "../doomstat.h"
 #include "../i_net.h"
+#include <string.h>   // ADD THIS
 #include "../z_zone.h"
 #include "../i_tcp.h"
 #include "../d_netcmd.h"
+#include "../d_net.h"
 #include "../d_clisrv.h"
+#include "../g_game.h"
 
 #ifdef HAVE_SDL
 
@@ -122,14 +125,14 @@ typedef void* SDLNet_SocketSet;
 
 static boolean nodeconnected[MAXNETNODES+1];
 static UINT16 sock_port = 5029;
-static INT32 net_bandwidth;
+extern INT32 net_bandwidth;
 static IPaddress clientaddress[MAXNETNODES+1];
 static IPaddress banned[MAXBANS];
 static UDPpacket mypacket;
 static UDPsocket mysocket = NULL;
 static SDLNet_SocketSet myset = NULL;
 static size_t numbans = 0;
-static boolean NET_bannednode[MAXNETNODES+1];
+static bannednode_t NET_bannednode[MAXNETNODES+1];
 static boolean init_SDLNet_driver = false;
 
 // -------------------------------------------------------------------------
@@ -215,31 +218,42 @@ static INT32 NET_WebToNode(INT32 relayid)
         clientaddress[newnode].host = 0; 
         clientaddress[newnode].reason[0] = '\0';
         nodeconnected[newnode] = true; 
-        NET_bannednode[newnode] = false; 
+        NET_bannednode[newnode].banid = 0;
+        NET_bannednode[newnode].timeleft = 0;
         return newnode;
     }
     return -1; 
 }
 
+extern void CL_RemovePlayer(INT32 playernum, INT32 reason);
+
 EMSCRIPTEN_KEEPALIVE
 void SRB2_NetworkClosed(int relay_id) {
     if (!server) return; 
+
     int node = -1;
     for (INT32 i = 1; i < MAXNETNODES; i++) {
         if (nodeconnected[i] && clientaddress[i].relayid == (unsigned int)relay_id) {
-            node = i; break;
+            node = i; 
+            break;
         }
     }
+
     if (node == -1) return;
-    
-    //CONS_Printf("SRB2: Connection Closed for Node %d", node);
-    
-    if (netnodes[node].ingame && netnodes[node].player) SendKicksForNode(node, KICK_MSG_PLAYER_QUIT | KICK_MSG_KEEP_BODY); 
-    Net_CloseConnection(node);
-    netnodes[node].ingame = false;
-    netnodes[node].player = -1;
+
+    // Loop through all player slots to remove any player assigned to this node
+    for (INT32 i = 0; i < MAXPLAYERS; i++) {
+        if (playeringame[i] && playernode[i] == node) {
+            CL_RemovePlayer(i, KR_LEAVE);
+        }
+    }
+
+    // Reset node variables
     nodeconnected[node] = false;
-    NET_bannednode[node] = false;
+    nodeingame[node] = false;
+
+    NET_bannednode[node].banid = 0;
+    NET_bannednode[node].timeleft = 0;
 }
 #endif
 
@@ -292,7 +306,7 @@ static boolean NET_Get(void)
         for (size_t i = 0; i < numbans; i++) {
             if (NET_cmpaddr(&clientaddress[node], &banned[i])) {
                 // Ban Match Found - Enforce Kick
-                NET_bannednode[node] = true; 
+                NET_bannednode[node].banid = i + 1;
                 break;
             }
         }
@@ -362,7 +376,8 @@ static void NET_FreeNodenum(INT32 numnode)
 #endif
     memset(&clientaddress[numnode], 0, sizeof (IPaddress));
     nodeconnected[numnode] = false; 
-    NET_bannednode[numnode] = false;
+    NET_bannednode[numnode].banid = 0;
+    NET_bannednode[numnode].timeleft = 0;
 }
 
 static UDPsocket NET_Socket(void)
@@ -447,7 +462,8 @@ static SINT8 NET_NetMakeNodewPort(const char *hostname, const char *port)
     }
     M_Memcpy(&clientaddress[newnode], &hostnameIP, sizeof(IPaddress));
     nodeconnected[newnode] = true; 
-    NET_bannednode[newnode] = false;
+    NET_bannednode[newnode].banid = 0;
+    NET_bannednode[newnode].timeleft = 0;
     return (SINT8)newnode;
 #else
     UINT16 portnum = sock_port;
@@ -466,7 +482,8 @@ static boolean NET_OpenSocket(void)
     memset(clientaddress, 0, sizeof (clientaddress));
     for(int i=0; i<MAXNETNODES+1; i++) {
         nodeconnected[i] = false;
-        NET_bannednode[i] = false;
+        NET_bannednode[i].banid = 0;
+        NET_bannednode[i].timeleft = 0;
     }
 
     I_NetSend = NET_Send;
@@ -539,6 +556,11 @@ static void NET_ClearBans(void)
     numbans = 0;
 }
 #endif
+
+static boolean NET_CanSend(void)
+{
+    return true;
+}
 
 boolean I_InitNetwork(void)
 {
@@ -616,12 +638,24 @@ boolean I_InitNetwork(void)
 		}
 	}
     mypacket.maxlen = hardware_MAXPACKETLENGTH;
-    I_NetOpenSocket = NET_OpenSocket;
-    I_Ban = NET_Ban;
-    I_ClearBans = NET_ClearBans;
+    I_NetCanGet = NET_CanGet;
+    I_NetCanSend = NET_CanSend;
+
+    I_NetGet = NET_Get;
+    I_NetSend = NET_Send;
+
+    I_NetFreeNodenum = NET_FreeNodenum;
+    I_NetCloseSocket = NET_CloseSocket;
+
     I_GetNodeAddress = NET_GetNodeAddress;
     I_GetBanAddress = NET_GetBanAddress;
     I_SetBanAddress = NET_SetBanAddress;
+
+    I_NetOpenSocket = NET_OpenSocket;
+
+    I_Ban = NET_Ban;
+    I_ClearBans = NET_ClearBans;
+
     bannednode = NET_bannednode;
     return ret;
 #else
