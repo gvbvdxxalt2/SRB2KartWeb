@@ -610,7 +610,7 @@ if (false) {
     }
   });
 }
-
+/*
 var textarea = document.createElement("textarea");
 textarea.style.width = "300px";
 textarea.style.height = "300px";
@@ -624,7 +624,7 @@ document.body.append(textarea);
 async function debugTextDiv(...content) {
   textarea.textContent += content.join(" ") + "\n";
 }
-window.debugTextDiv = debugTextDiv;
+window.debugTextDiv = debugTextDiv;*/
 
 // 1. Synchronous runtime errors & resource failures
 window.addEventListener('error', (event) => {
