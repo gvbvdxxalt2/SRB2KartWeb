@@ -571,7 +571,7 @@ boolean I_InitNetwork(void)
     I_AddExitFunc(I_ShutdownSDLNetDriver);
     if (!init_SDLNet_driver) return false;
 #ifdef EMSCRIPTEN
-    boolean ret = true;
+    ret = true;
     SRB2_InitNetwork();
 #endif
     if (M_CheckParm("-udpport")) {
