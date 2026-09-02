@@ -35,6 +35,21 @@
 #include <emscripten.h>
 #include <stdio.h> 
 
+#define MAX_LOOPBACK_PACKETS 32
+
+typedef struct {
+    unsigned char data[MAX_PACKET_SIZE];
+    int length;
+} loopback_packet_t;
+
+static volatile loopback_packet_t loopback_queue[MAX_LOOPBACK_PACKETS];
+static volatile int loopback_head = 0;
+static volatile int loopback_tail = 0;
+
+static int NextLoopbackIndex(int index) { 
+    return (index + 1) % MAX_LOOPBACK_PACKETS; 
+}
+
 #define MAX_QUEUED_PACKETS 7000
 #define MAX_PACKET_SIZE 7000
 
@@ -184,7 +199,7 @@ static boolean NET_cmpaddr(IPaddress* a, IPaddress* b)
 static boolean NET_CanGet(void)
 {
 #ifdef EMSCRIPTEN
-    return (queue_head != queue_tail);
+    return (loopback_head != loopback_tail) || (queue_head != queue_tail);
 #else
     return myset?(SDLNet_CheckSockets(myset,0)  == 1):false;
 #endif
@@ -263,6 +278,22 @@ void SRB2_NetworkClosed(int relay_id) {
 static boolean NET_Get(void)
 {
 #ifdef EMSCRIPTEN
+
+// 1. Process local loopback first
+    if (loopback_head != loopback_tail) {
+        int tail = loopback_tail;
+        loopback_packet_t *pkt = (loopback_packet_t*)&loopback_queue[tail];
+
+        mypacket.len = pkt->length;
+        memcpy(mypacket.data, pkt->data, pkt->length);
+
+        doomcom->remotenode = 0; // Identifies as local loopback
+        doomcom->datalength = mypacket.len;
+
+        loopback_tail = NextLoopbackIndex(tail);
+        return true;
+    }
+
     if (queue_head == queue_tail) {
         doomcom->remotenode = -1;
         return false;
@@ -359,6 +390,17 @@ static void NET_Send(void)
     mypacket.len = doomcom->datalength;
 
 #ifdef EMSCRIPTEN
+    // Route local node (0) directly to loopback queue
+    if (doomcom->remotenode == 0) {
+        int next_head = NextLoopbackIndex(loopback_head);
+        if (next_head == loopback_tail) return; // Queue full, drop packet
+
+        memcpy((void*)loopback_queue[loopback_head].data, mypacket.data, mypacket.len);
+        loopback_queue[loopback_head].length = mypacket.len;
+        loopback_head = next_head;
+        return;
+    }
+
     if (doomcom->remotenode < 0 || doomcom->remotenode >= MAXNETNODES) return;
     int target_relay_id = clientaddress[doomcom->remotenode].relayid;
     SRB2_NetworkSend(target_relay_id, mypacket.data, mypacket.len);
