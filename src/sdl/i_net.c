@@ -38,7 +38,7 @@
 #define MAX_LOOPBACK_PACKETS 32
 
 typedef struct {
-    unsigned char data[MAX_PACKET_SIZE];
+    unsigned char data[MAXPACKETLENGTH];
     int length;
 } loopback_packet_t;
 
