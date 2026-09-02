@@ -4420,12 +4420,15 @@ static void HandleConnect(SINT8 node)
 	UINT8 maxplayers = min((dedicated ? MAXPLAYERS-1 : MAXPLAYERS), cv_maxplayers.value);
 	UINT8 connectedplayers = 0;
 
+	CONS_Printf("HandleConnect called for node %d\n", node);
+
 	for (UINT8 i = dedicated ? 1 : 0; i < MAXPLAYERS; i++)
 		if (playernode[i] != UINT8_MAX) // We use this to count players because it is affected by SV_AddWaitingPlayers when more than one client joins on the same tic, unlike playeringame and D_NumPlayers. UINT8_MAX denotes no node for that player
 			connectedplayers++;
 
 	if (bannednode && bannednode[node].banid != SIZE_MAX)
 	{
+		CONS_Printf("HandleConnect REJECT: Node %d is BANNED (banid: %zu)\n", node, bannednode[node].banid);
 		const char *reason = NULL;
 
 		// Get the reason...
@@ -4434,6 +4437,7 @@ static void HandleConnect(SINT8 node)
 
 		if (bannednode[node].timeleft != NO_BAN_TIME)
 		{
+			
 			 // these are fudged a little to allow it to sink in for impatient rejoiners
 			int minutes = (bannednode[node].timeleft + 30) / 60;
 			int hours = (minutes + 1) / 60;
@@ -4464,6 +4468,8 @@ static void HandleConnect(SINT8 node)
 	else if (netbuffer->u.clientcfg._255 != 255 ||
 			netbuffer->u.clientcfg.packetversion != PACKETVERSION)
 	{
+		CONS_Printf("HandleConnect REJECT: Packet format mismatch (_255=%d, ver=%d)\n", 
+                    netbuffer->u.clientcfg._255, netbuffer->u.clientcfg.packetversion);
 		SV_SendRefuse(node, "Incompatible packet formats.");
 	}
 	else if (strncmp(netbuffer->u.clientcfg.application, SRB2APPLICATION,
@@ -4498,6 +4504,7 @@ static void HandleConnect(SINT8 node)
 	}
 	else
 	{
+		CONS_Printf("HandleConnect SUCCESS: Node %d authorized to join!\n", node);
 #ifndef NONET
 		boolean newnode = false;
 #endif

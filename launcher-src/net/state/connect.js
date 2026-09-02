@@ -16,7 +16,6 @@ class ConnectState {
   }
 
   constructor(wsHost, { address, port }) {
-    window.alert(`Trying to connect to ${address}:${port}`);
     this.connect = true;
     this.address = address;
     this.port = port;

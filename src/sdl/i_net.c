@@ -25,6 +25,7 @@
 #include "../d_net.h"
 #include "../d_clisrv.h"
 #include "../g_game.h"
+#include "../z_zone.h"
 
 #ifdef HAVE_SDL
 
@@ -94,22 +95,6 @@ extern int SRB2_ConnectTo(const char* addr, char* port);
 #ifdef HAVE_SDLNET
 
 #ifdef EMSCRIPTEN
-typedef struct {
-    unsigned int host;    
-    unsigned short port; 
-    unsigned int relayid; 
-    char ip[64];
-    char reason[256]; // Added for ban reasons
-} IPaddress;
-
-typedef struct {
-    int channel;
-    unsigned char *data;
-    int len;
-    int maxlen;
-    int status;
-    IPaddress address;
-} UDPpacket;
 
 typedef void* UDPsocket;
 typedef void* SDLNet_SocketSet;
@@ -127,7 +112,7 @@ static boolean nodeconnected[MAXNETNODES+1];
 static UINT16 sock_port = 5029;
 extern INT32 net_bandwidth;
 static IPaddress clientaddress[MAXNETNODES+1];
-static IPaddress banned[MAXBANS];
+static bannednode_t banned[MAXBANS];
 static UDPpacket mypacket;
 static UDPsocket mysocket = NULL;
 static SDLNet_SocketSet myset = NULL;
@@ -167,7 +152,7 @@ static const char *NET_GetNodeAddress(INT32 node)
 static const char *NET_GetBanAddress(size_t ban)
 {
     if (ban > numbans) return NULL;
-    return NET_AddrToStr(&banned[ban]);
+    return NET_AddrToStr(&banned[ban].address);
 }
 
 static boolean NET_cmpaddr(IPaddress* a, IPaddress* b)
@@ -216,8 +201,9 @@ static INT32 NET_WebToNode(INT32 relayid)
         memset(&clientaddress[newnode], 0, sizeof(IPaddress));
         clientaddress[newnode].relayid = relayid;
         clientaddress[newnode].host = 0; 
-        clientaddress[newnode].reason[0] = '\0';
+        
         nodeconnected[newnode] = true; 
+
         NET_bannednode[newnode].banid = SIZE_MAX;
         NET_bannednode[newnode].timeleft = NO_BAN_TIME;
         return newnode;
@@ -241,16 +227,28 @@ void SRB2_NetworkClosed(int relay_id) {
 
     if (node == -1) return;
 
-    // Loop through all player slots to remove any player assigned to this node
-    for (INT32 i = 0; i < MAXPLAYERS; i++) {
-        if (playeringame[i] && playernode[i] == node) {
-            CL_RemovePlayer(i, KR_LEAVE);
-        }
+    // 1. Remove all players assigned to this node via net command
+    INT32 p = nodetoplayer[node];
+    if (p >= 0 && playeringame[p]) {
+        UINT8 buf[2];
+        buf[0] = (UINT8)p;
+        buf[1] = (UINT8)KR_LEAVE;
+        SendNetXCmd(XD_REMOVEPLAYER, buf, 2);
     }
 
-    // Reset node variables
+    // Check for splitscreen secondary players on the same node
+    p = nodetoplayer2[node];
+    if (p >= 0 && playeringame[p]) {
+        UINT8 buf[2];
+        buf[0] = (UINT8)p;
+        buf[1] = (UINT8)KR_LEAVE;
+        SendNetXCmd(XD_REMOVEPLAYER, buf, 2);
+    }
+
+    // 2. Clear network-level node state so it can be reused by new connections
     nodeconnected[node] = false;
     nodeingame[node] = false;
+    memset(&clientaddress[node], 0, sizeof(IPaddress));
 
     NET_bannednode[node].banid = SIZE_MAX;
     NET_bannednode[node].timeleft = NO_BAN_TIME;
@@ -306,7 +304,7 @@ static boolean NET_Get(void)
         // Check Ban on every packet silently (Ignore node 0 / local loopback)
         if (node > 0) {
             for (size_t i = 0; i < numbans; i++) {
-                if (banned[i].host != 0 && NET_cmpaddr(&clientaddress[node], &banned[i])) {
+                if (banned[i].address.host != 0 && NET_cmpaddr(&clientaddress[node], &banned[i].address)) {
                     // Ban Match Found - Enforce Kick
                     NET_bannednode[node].banid = i;
                     break;
@@ -326,7 +324,7 @@ static boolean NET_Get(void)
         doomcom->remotenode = node;
         doomcom->datalength = mypacket.len;
         
-        CONS_Printf("NET_Get: Forwarding packet of length %d to node %d\n", mypacket.len, node);
+        //CONS_Printf("NET_Get: Forwarding packet of length %d to node %d\n", mypacket.len, node);
         queue_tail = NextIndex(tail);
         return true;
     }
@@ -361,7 +359,7 @@ static void NET_Send(void)
 {
     if (!doomcom->remotenode) return;
     mypacket.len = doomcom->datalength;
-    CONS_Printf("NET_Send: Sending packet of length %d\n", mypacket.len);
+    //CONS_Printf("NET_Send: Sending packet of length %d\n", mypacket.len);
 
 #ifdef EMSCRIPTEN
     // Route local node (0) directly to loopback queue
@@ -503,7 +501,7 @@ static boolean NET_OpenSocket(void)
 
     NET_CloseSocket();
     mysocket = NET_Socket();
-    CONS_Printf("NET_OpenSocket: Creating socket on port %d\n", sock_port);
+    //CONS_Printf("NET_OpenSocket: Creating socket on port %d\n", sock_port);
 
     #ifdef EMSCRIPTEN
         if (server) SRB2_ListenOn(sock_port);
@@ -526,11 +524,12 @@ static boolean NET_Ban(INT32 node)
 {
     if (numbans == MAXBANS) return false;
     M_Memcpy(&banned[numbans], &clientaddress[node], sizeof (IPaddress));
-    banned[numbans].port = 0;
+    banned[numbans].address.port = 0;
     
     // Default reason (since I_Ban doesn't accept arguments)
 #ifdef EMSCRIPTEN
-    strcpy(banned[numbans].reason, "Manual Ban"); 
+    banned[numbans].reason = Z_StrDup("Manual Ban");
+    banned[numbans].username = Z_StrDup("Unknown");
 #endif
 
     numbans++;
@@ -542,17 +541,17 @@ static boolean NET_SetBanAddress(const char *address, const char *mask)
     (void)mask;
     if (numbans == MAXBANS) return false;
 #ifdef EMSCRIPTEN
-    strncpy(banned[numbans].ip, address, 63);
-    banned[numbans].ip[63] = '\0';
-    banned[numbans].host = StringToAddr(address); 
-    banned[numbans].relayid = 0; 
-    banned[numbans].port = 0;
+    strncpy(banned[numbans].address.ip, address, 63);
+    banned[numbans].address.ip[63] = '\0';
+    banned[numbans].address.host = StringToAddr(address); 
+    banned[numbans].address.relayid = 0; 
+    banned[numbans].address.port = 0;
     
-    // Default reason for bans loaded from file
-    banned[numbans].reason[0] = '\0'; 
-
-    //CONS_Printf("Driver Loaded Ban: %s\n", banned[numbans].ip);
-
+    // Explicitly initialize pointers to NULL to prevent Z_Free crashes later
+    banned[numbans].reason = NULL; 
+    banned[numbans].username = NULL;
+    banned[numbans].timestamp = NO_BAN_TIME;
+    
     numbans++;
     return true;
 #else
@@ -590,17 +589,16 @@ static const char *NET_GetBanMask(size_t ban)
 
 static const char *NET_GetBanUsername(size_t ban)
 {
-    (void)ban;
-    return NULL; // Return NULL if username tracking isn't stored in banned[]
+    if (ban >= numbans)
+		return NULL;
+	return banned[ban].username;
 }
 
 static const char *NET_GetBanReason(size_t ban)
 {
-#ifdef EMSCRIPTEN
-    if (ban < numbans && banned[ban].reason[0] != '\0')
-        return banned[ban].reason;
-#endif
-    return "Banned by server operator";
+    if (ban >= numbans)
+		return NULL;
+	return banned[ban].reason;
 }
 
 static time_t NET_GetUnbanTime(size_t ban)
@@ -611,31 +609,53 @@ static time_t NET_GetUnbanTime(size_t ban)
 
 static boolean NET_SetBanUsername(const char *username)
 {
-    (void)username;
-    return true;
+    if (numbans == 0) return false;
+
+    if (username == NULL || strlen(username) == 0)
+	{
+		username = "Direct IP ban";
+	}
+
+	if (banned[numbans - 1].username)
+	{
+		Z_Free(banned[numbans - 1].username);
+		banned[numbans - 1].username = NULL;
+	}
+
+	banned[numbans - 1].username = Z_StrDup(username);
+	return true;
 }
 
 static boolean NET_SetBanReason(const char *reason)
 {
-    if (reason == NULL || strlen(reason) == 0)
-	{
-		reason = "No reason given";
-	}
+    // 1. Guard against empty ban list
+    if (numbans == 0)
+        return false;
 
-	if (banned[numbans - 1].reason)
-	{
-		Z_Free(banned[numbans - 1].reason);
-		banned[numbans - 1].reason = NULL;
-	}
+    // 2. Fallback for null or empty reason string
+    if (reason == NULL || reason[0] == '\0')
+    {
+        reason = "No reason given";
+    }
 
-	banned[numbans - 1].reason = Z_StrDup(reason);
-	return true;
+    // 3. Free previous allocation if present
+    if (banned[numbans - 1].reason != NULL)
+    {
+        Z_Free(banned[numbans - 1].reason);
+        banned[numbans - 1].reason = NULL;
+    }
+
+    // 4. Duplicate string into SRB2 zone memory
+    banned[numbans - 1].reason = Z_StrDup(reason);
+    return true;
 }
 
 static boolean NET_SetUnbanTime(time_t timestamp)
 {
-    (void)timestamp;
-    return true;
+    if (numbans == 0) return false;
+
+    banned[numbans - 1].timestamp = timestamp;
+	return true;
 }
 
 // -------------------------------------------------------------------------

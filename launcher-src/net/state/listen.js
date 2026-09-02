@@ -9,7 +9,6 @@ class ListenState {
   }
 
   constructor(wsHost, isPublic = true) {
-    window.alert(`Server trying to listen`);
     this.listen = true;
     this.wsHost = wsHost;
     this.isOpen = false;
@@ -188,7 +187,6 @@ class ListenState {
   }
 
   handleSRB2Send(data, rid) {
-    window.alert("Trying to send on "+rid);
     var ch = this.connections[rid];
     if (!ch) {
       return;

@@ -174,11 +174,32 @@ extern boolean (*I_SetUnbanTime) (time_t timestamp);
 
 extern INT32 net_bandwidth;
 
-typedef struct
-{
-	size_t banid;
-	time_t timeleft;
+typedef struct {
+    unsigned int host;    
+    unsigned short port; 
+    unsigned int relayid; 
+    char ip[64];
+} IPaddress;
+
+typedef struct {
+    size_t banid;
+    time_t timeleft;
+    UINT8 mask;
+    char *username;
+    char *reason;
+    time_t timestamp;
+    IPaddress address;
 } bannednode_t;
+
+typedef struct {
+    int channel;
+    unsigned char *data;
+    int len;
+    int maxlen;
+    int status;
+    IPaddress address;
+} UDPpacket;
+
 extern bannednode_t *bannednode;
 
 /// \brief Called by D_SRB2Main to be defined by extern network driver
