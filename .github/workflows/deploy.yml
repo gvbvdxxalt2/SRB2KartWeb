@@ -1,10 +1,9 @@
-
 name: Deploy SRB2Kart Web
 
 on:
   push:
     branches:
-      - main # Or 'master'
+      - master # Or 'master'
 
 permissions:
       contents: write
