@@ -13,12 +13,11 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
-environment:
-  name: github-pages
-  url: ${{ steps.deployment.outputs.page_url }}
-
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -41,22 +40,10 @@ jobs:
       - name: Build Project
         run: yarn build
 
-      - name: Track Large Assets for Deployment
-        run: |
-          cd launcher-dist
-          git init
-          git lfs install
-          git lfs track "*.kart"
-          git lfs track "*.srb"
-          git lfs track "*.wad"
-          git add .gitattributes
-          git add .
-        shell: bash
-
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'launcher-dist' # Path to your built output folder
+          path: 'launcher-dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
