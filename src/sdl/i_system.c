@@ -3206,6 +3206,10 @@ void I_Quit(void)
 		free(myargv); // Deallocate allocated memory
 death:
 	W_Shutdown();
+#ifdef __EMSCRIPTEN__
+	emscripten_cancel_main_loop();
+	emscripten_force_exit(0);
+#endif
 	exit(0);
 }
 
@@ -3278,6 +3282,10 @@ void I_Error(const char *error, ...)
 				buffer, NULL);
 
 			W_Shutdown();
+#ifdef __EMSCRIPTEN__
+			emscripten_cancel_main_loop();
+			emscripten_force_exit(-1);
+#endif
 			exit(-1); // recursive errors detected
 		}
 	}
@@ -3331,6 +3339,11 @@ void I_Error(const char *error, ...)
 
 #if defined (PARANOIA) && defined (__CYGWIN__)
 	*(INT32 *)2 = 4; //Alam: Debug!
+#endif
+
+#ifdef __EMSCRIPTEN__
+	emscripten_cancel_main_loop();
+	emscripten_force_exit(-1);
 #endif
 
 	exit(-1);

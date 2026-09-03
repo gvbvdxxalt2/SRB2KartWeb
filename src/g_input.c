@@ -1756,21 +1756,22 @@ void EMSCRIPTEN_KEEPALIVE SRB2_SetDirectAction(int control_index, int is_down)
 	if (menuactive) {
 		if (control_index == gc_accelerate) {
 			bound_key = KEY_ENTER;
-		}
-		if (control_index == gc_brake) {
+		} else if (control_index == gc_brake) {
 			bound_key = KEY_ESCAPE;
-		}
-		if (control_index == gc_lookup) {
+		} else if (control_index == gc_systemmenu) {
+			bound_key = KEY_ESCAPE;
+		} else if (control_index == gc_drift) {
+			bound_key = KEY_ESCAPE;
+		} else if (control_index == gc_lookup) {
 			bound_key = KEY_UPARROW;
-		}
-		if (control_index == gc_lookdown) {
+		} else if (control_index == gc_lookdown) {
 			bound_key = KEY_DOWNARROW;
-		}
-		if (control_index == gc_turnleft) {
+		} else if (control_index == gc_turnleft) {
 			bound_key = KEY_LEFTARROW;
-		}
-		if (control_index == gc_turnright) {
+		} else if (control_index == gc_turnright) {
 			bound_key = KEY_RIGHTARROW;
+		} else {
+			return;
 		}
 	}
 

@@ -1412,35 +1412,26 @@ void D_SRB2Main(void)
 	// we need the font of the console
 	CONS_Printf("HU_Init(): Setting up heads up display.\n");
 	HU_Init();
-	CONS_Printf("Startup checkpoint: HU_Init complete.\n");
 
 	COM_Init();
-	CONS_Printf("Startup checkpoint: COM_Init complete.\n");
 	// libogc has a CON_Init function, we must rename SRB2's CON_Init in WII/libogc
 #ifndef _WII
 	CON_Init();
-	CONS_Printf("Startup checkpoint: CON_Init complete.\n");
 #else
 	CON_InitWii();
 #endif
 
 	D_RegisterServerCommands();
-	CONS_Printf("Startup checkpoint: server commands complete.\n");
 	D_RegisterClientCommands(); // be sure that this is called before D_CheckNetGame
-	CONS_Printf("Startup checkpoint: network commands complete.\n");
 	R_RegisterEngineStuff();
 	S_RegisterSoundStuff();
-	CONS_Printf("Startup checkpoint: engine and sound commands complete.\n");
 
 	I_RegisterSysCommands();
-	CONS_Printf("Startup checkpoint: system commands complete.\n");
 
 	//--------------------------------------------------------- CONFIG.CFG
 	M_FirstLoadConfig(); // WARNING : this do a "COM_BufExecute()"
-	CONS_Printf("Startup checkpoint: first config complete.\n");
 
 	G_LoadGameData();
-	CONS_Printf("Startup checkpoint: game data complete.\n");
 
 #if (defined (__unix__) && !defined (MSDOS)) || defined (UNIXCOMMON) || defined (HAVE_SDL)
 	VID_PrepareModeList(); // Regenerate Modelist according to cv_fullscreen
