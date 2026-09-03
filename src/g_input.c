@@ -43,6 +43,8 @@ joy3xmove[JOYAXISSET], joy3ymove[JOYAXISSET], joy4xmove[JOYAXISSET], joy4ymove[J
 // current state of the keys: true if pushed
 UINT8 gamekeydown[NUMINPUTS];
 
+UINT8 directcontrol[num_gamecontrols];
+
 // two key codes (or virtual key) per game control
 INT32 gamecontrol[num_gamecontrols][2];
 INT32 gamecontrolbis[num_gamecontrols][2]; // secondary splitscreen player
@@ -1726,3 +1728,63 @@ void Command_Setcontrol4_f(void)
 
 	setcontrol(gamecontrol4);
 }
+
+
+#ifdef EMSCRIPTEN
+
+#include <emscripten.h>
+#include "g_game.h"
+#include "d_main.h"
+
+void EMSCRIPTEN_KEEPALIVE SRB2_SetDirectAction(int control_index, int is_down)
+{
+	// Bounds check first before any array access
+	if (control_index < 0 || control_index >= num_gamecontrols)
+		return;
+
+
+	INT32 bound_key = gamecontrol[control_index][0];
+
+	// Fall back to secondary binding if primary isn't set
+	if (bound_key == 0)
+		bound_key = gamecontrol[control_index][1];
+
+	// If no key is bound to this control, ignore the event
+	if (bound_key == 0)
+		return;
+
+	if (menuactive) {
+		if (control_index == gc_accelerate) {
+			bound_key = KEY_ENTER;
+		}
+		if (control_index == gc_brake) {
+			bound_key = KEY_ESCAPE;
+		}
+		if (control_index == gc_lookup) {
+			bound_key = KEY_UPARROW;
+		}
+		if (control_index == gc_lookdown) {
+			bound_key = KEY_DOWNARROW;
+		}
+		if (control_index == gc_turnleft) {
+			bound_key = KEY_LEFTARROW;
+		}
+		if (control_index == gc_turnright) {
+			bound_key = KEY_RIGHTARROW;
+		}
+	}
+
+	if (chat_on) {
+		if (control_index == gc_talkkey) {
+			bound_key = KEY_ESCAPE;
+		} else {
+			return;
+		}
+	}
+	
+	event_t ev2;
+	ev2.type = is_down ? ev_keydown : ev_keyup;
+	ev2.data1 = bound_key;
+	D_PostEvent(&ev2);
+}
+#endif

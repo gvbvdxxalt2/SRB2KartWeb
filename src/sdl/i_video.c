@@ -26,6 +26,8 @@
 
 #ifdef EMSCRIPTEN
 #include <emscripten.h>
+
+extern void SRB2_VideoResolutionInfo(int width, int height);
 #endif
 
 #ifdef _MSC_VER
@@ -274,6 +276,10 @@ static void SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen)
 		SDL_PixelFormatEnumToMasks(sw_texture_format, &bpp, &rmask, &gmask, &bmask, &amask);
 		vidSurface = SDL_CreateRGBSurface(0, width, height, bpp, rmask, gmask, bmask, amask);
 	}
+
+	#ifdef EMSCRIPTEN
+	SRB2_VideoResolutionInfo(width, height);
+	#endif
 }
 
 static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)

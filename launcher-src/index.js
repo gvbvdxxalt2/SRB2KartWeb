@@ -25,8 +25,6 @@ playButton.addEventListener("click", function () {
   startGame(getDisplayOptions());
 });
 touchConfigureButton.addEventListener("click", function () {
-  dialog.alert("Touch controls aren't currently supported. Sorry!");
-  return;
   startTouchCustomization();
 });
 

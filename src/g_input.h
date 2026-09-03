@@ -139,6 +139,10 @@ extern INT32 joyxmove[JOYAXISSET], joyymove[JOYAXISSET], joy2xmove[JOYAXISSET], 
 // current state of the keys: true if pushed
 extern UINT8 gamekeydown[NUMINPUTS];
 
+// direct control state (independent of key bindings) for Emscripten/web input
+extern UINT8 directcontrol[num_gamecontrols];
+extern UINT8 directcontrolbis[num_gamecontrols];
+
 // two key codes (or virtual key) per game control
 extern INT32 gamecontrol[num_gamecontrols][2];
 extern INT32 gamecontrolbis[num_gamecontrols][2]; // secondary splitscreen player

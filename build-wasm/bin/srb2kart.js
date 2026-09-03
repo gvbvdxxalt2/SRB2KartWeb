@@ -897,6 +897,12 @@ function _SRB2_ServerInfoResponse(serverName, maxPlayers, map, mapTitle, ingame_
   return 1;
 }
 
+function _SRB2_VideoResolutionInfo(width, height) {
+  if (window.SRB2HandleVideoResolution) {
+    window.SRB2HandleVideoResolution(width, height);
+  }
+}
+
 var ___call_sighandler = (fp, sig) => (a1 => dynCall_vi(fp, a1))(sig);
 
 var ___handle_stack_overflow = requested => {
@@ -10990,6 +10996,8 @@ var _free = Module["_free"] = makeInvalidEarlyAccess("_free");
 
 var _strerror = makeInvalidEarlyAccess("_strerror");
 
+var _SRB2_SetDirectAction = Module["_SRB2_SetDirectAction"] = makeInvalidEarlyAccess("_SRB2_SetDirectAction");
+
 var _htons = makeInvalidEarlyAccess("_htons");
 
 var _htonl = makeInvalidEarlyAccess("_htonl");
@@ -11149,6 +11157,7 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports["malloc"] != "undefined", "missing Wasm export: malloc");
   assert(typeof wasmExports["free"] != "undefined", "missing Wasm export: free");
   assert(typeof wasmExports["strerror"] != "undefined", "missing Wasm export: strerror");
+  assert(typeof wasmExports["SRB2_SetDirectAction"] != "undefined", "missing Wasm export: SRB2_SetDirectAction");
   assert(typeof wasmExports["htons"] != "undefined", "missing Wasm export: htons");
   assert(typeof wasmExports["htonl"] != "undefined", "missing Wasm export: htonl");
   assert(typeof wasmExports["ntohs"] != "undefined", "missing Wasm export: ntohs");
@@ -11228,6 +11237,7 @@ function assignWasmExports(wasmExports) {
   _malloc = Module["_malloc"] = createExportWrapper("malloc", wasmExports["malloc"], 1);
   _free = Module["_free"] = createExportWrapper("free", wasmExports["free"], 1);
   _strerror = createExportWrapper("strerror", wasmExports["strerror"], 1);
+  _SRB2_SetDirectAction = Module["_SRB2_SetDirectAction"] = createExportWrapper("SRB2_SetDirectAction", wasmExports["SRB2_SetDirectAction"], 2);
   _htons = createExportWrapper("htons", wasmExports["htons"], 1);
   _htonl = createExportWrapper("htonl", wasmExports["htonl"], 1);
   _ntohs = createExportWrapper("ntohs", wasmExports["ntohs"], 1);
@@ -11312,6 +11322,7 @@ var wasmImports = {
   /** @export */ SRB2_ListenOn: _SRB2_ListenOn,
   /** @export */ SRB2_NetworkSend: _SRB2_NetworkSend,
   /** @export */ SRB2_ServerInfoResponse: _SRB2_ServerInfoResponse,
+  /** @export */ SRB2_VideoResolutionInfo: _SRB2_VideoResolutionInfo,
   /** @export */ __call_sighandler: ___call_sighandler,
   /** @export */ __handle_stack_overflow: ___handle_stack_overflow,
   /** @export */ __syscall_bind: ___syscall_bind,

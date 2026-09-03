@@ -29,12 +29,12 @@ function sendInput(nameid, down) {
     if (!!keyState[number] == !!downBool) {
         return;
     }
-    /*Module.ccall(
+    Module.ccall(
         'SRB2_SetDirectAction',
         'void',
         ['number','number'],
         [number, downNumber]
-    );*/
+    );
 
     if (downBool) {
         keyState[number] = downBool; 
@@ -49,10 +49,10 @@ function sendJoystick(x,y) {
         return;
     }
     var range = 0.7;
-    sendInput("GC_FORWARD", y > range);
-    sendInput("GC_BACKWARD", y < -range);
-    sendInput("GC_STRAFELEFT", x < -range);
-    sendInput("GC_STRAFERIGHT", x > range);
+    sendInput("gc_lookup", y > range);
+    sendInput("gc_lookdown", y < -range);
+    sendInput("gc_turnleft", x < -range);
+    sendInput("gc_turnright", x > range);
 }
 
 module.exports = {
