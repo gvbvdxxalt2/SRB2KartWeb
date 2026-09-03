@@ -1,0 +1,40 @@
+name: Deploy SRB2Kart Web
+
+on:
+  push:
+    branches:
+      - main # Or 'master'
+
+permissions:
+      contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true # Crucial: Forces runner to pull LFS assets during checkout
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18 # Match your required Node version
+          cache: 'yarn'
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install Game Assets
+        run: ./get-assets.sh
+
+      - name: Build Project
+        run: yarn build
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: launcher-build # Directory specified by your build output
+          branch: gh-pages
+          lfs: true # Handles pushing LFS objects to the deployment branch safely
