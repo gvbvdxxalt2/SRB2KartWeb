@@ -36,9 +36,10 @@ function startupTouchControls() {
         deactivateKeyboardChecks();
         hideKeyboard();
     }
-    document.addEventListener("touchstart", activate);
-    document.addEventListener("keydown", deactivate);
-    document.addEventListener("gamepadconnected", deactivate);
+    //Not supported yet.
+    //document.addEventListener("touchstart", activate);
+    //document.addEventListener("keydown", deactivate);
+    //document.addEventListener("gamepadconnected", deactivate);
 }
 
 function startTouchCustomization() {

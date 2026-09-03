@@ -269,7 +269,8 @@ async function startGame(options = {}) {
       Module.arguments.push("-server");
     }
     if (options.joinURL) {
-      connectAddr = options.joinURL;
+      Module.arguments.push("-connect");
+      Module.arguments.push(options.joinURL);
     }
     if (options.resolutionChangeMethod) {
       resolutionChangeMethod = options.resolutionChangeMethod;

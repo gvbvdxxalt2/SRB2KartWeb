@@ -5,6 +5,7 @@ var relayServerCheckbox = elements.getGPId("relayServerCheckbox");
 var lstorageName = "SRB2WebRelayConfig";
 var RelayOption = require("./relayoption.js");
 var net = require("./net");
+var version = require("./net/version.js");
 
 var browsePublicGames = elements.getGPId("browsePublicGames");
 var browseNetgamesLargeButton = elements.getGPId("browseNetgamesLargeButton");
@@ -303,15 +304,14 @@ function gameToButton(game, selectedURL, onClick) {
         element: "div",
         style: {
           display: "flex",
-          alignItems: "center",
-          gap: "2px",
+          flexDirection: "column",
         },
         children: [
-          /*{
-            element: "img",
-            className: "netgameCommunicationType",
-            src: game.usesWebRTC ? "images/webrtc.svg" : "images/websocket.svg",
-          },*/
+          {
+            element: "span",
+            className: "netgameGameName",
+            textContent: game.gameName,
+          },
           {
             element: "span",
             className: "netgameServerName",
