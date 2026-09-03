@@ -44,9 +44,11 @@ jobs:
           git add .
         shell: bash
 
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          folder: launcher-dist
-          branch: gh-pages
-          lfs: true
+          path: 'launcher-dist' # Path to your built output folder
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
