@@ -3,7 +3,7 @@ name: Deploy SRB2Kart Web
 on:
   push:
     branches:
-      - master # Or 'master'
+      - master
 
 permissions:
       contents: write
@@ -15,12 +15,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          lfs: true # Crucial: Forces runner to pull LFS assets during checkout
+          lfs: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24 # Match your required Node version
+          node-version: 24
           cache: 'yarn'
 
       - name: Install Dependencies
@@ -32,9 +32,21 @@ jobs:
       - name: Build Project
         run: yarn build
 
+      - name: Track Large Assets for Deployment
+        run: |
+          cd launcher-dist
+          git init
+          git lfs install
+          git lfs track "*.kart"
+          git lfs track "*.srb"
+          git lfs track "*.wad"
+          git add .gitattributes
+          git add .
+        shell: bash
+
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: launcher-dist # Directory specified by your build output
+          folder: launcher-dist
           branch: gh-pages
-          lfs: true # Handles pushing LFS objects to the deployment branch safely
+          lfs: true
