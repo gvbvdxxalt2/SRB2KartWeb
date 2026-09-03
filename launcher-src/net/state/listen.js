@@ -2,7 +2,7 @@ var { getWebsocketURL, getHttpURL, PLACEHOLDER_IP } = require("./util.js");
 var ErrorCodes = require("./errors.js");
 var attachSRB2 = require("../attach.js");
 var ListenChannel = require("./listench.js");
-const GAME_ID = "SRB2KART";
+var version = require("../version.js");
 
 class ListenState {
   static getChannelURL(wsHost, code) {
@@ -204,7 +204,8 @@ class ListenState {
     var info = await attachSRB2.getServerInfo();
 
     info.usesWebRTC = this.useRTC; //Completley separate property from the actual game server info.
-    info.gameID = GAME_ID;
+    info.gameName = version.GAME_NAME;
+    info.gameID = version.GAME_ID;
 
     if (!info) {
       this._lastServerInfo = {};
