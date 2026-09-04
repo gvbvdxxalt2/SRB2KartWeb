@@ -434,9 +434,7 @@ static void COM_TokenizeString(char *ptext)
 void COM_AddCommand(const char *name, com_func_t func)
 {
 	xcommand_t *cmd;
-
-	CONS_Printf("Crash Debug: Adding command with name %s\n", name);
-
+	
 	// fail if the command is a variable name
 	if (CV_StringValue(name)[0] != '\0')
 	{
