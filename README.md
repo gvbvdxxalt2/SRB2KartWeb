@@ -17,7 +17,7 @@ This doesn't mean that I didn't build anything at all, since I still wrote the l
 
 ## Compilation
 
-This is the exact same as [SRB2web's readme](https://github.com/gvbvdxxalt2/SRB2web), but it only works on Linux or WSL (Windows Subsystem for Linux).
+This is almost the exact same as [SRB2web's readme](https://github.com/gvbvdxxalt2/SRB2web), but it only works on Linux or WSL (Windows Subsystem for Linux).
 
 ### Requirements
 
