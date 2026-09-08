@@ -16,6 +16,10 @@
 
 #include <SDL.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 typedef void * (*Create_fn)(void);
 
 struct Link;
@@ -26,17 +30,17 @@ typedef struct Thread * Thread;
 
 struct Link
 {
-	void * data;
-	Link   next;
-	Link   prev;
+    void * data;
+    Link   next;
+    Link   prev;
 };
 
 struct Thread
 {
-	I_thread_fn   entry;
-	void        * userdata;
+    I_thread_fn   entry;
+    void        * userdata;
 
-	SDL_Thread  * thread;
+    SDL_Thread  * thread;
 };
 
 static Link    i_thread_pool;
@@ -51,309 +55,359 @@ static SDL_atomic_t   i_threads_running = {1};
 
 static Link
 Insert_link (
-		Link * head,
-		Link   link
+        Link * head,
+        Link   link
 ){
-	link->prev = NULL;
-	link->next = (*head);
-	if ((*head))
-		(*head)->prev = link;
-	(*head)    = link;
-	return link;
+    link->prev = NULL;
+    link->next = (*head);
+    if ((*head))
+        (*head)->prev = link;
+    (*head)    = link;
+    return link;
 }
 
 static void
 Free_link (
-		Link * head,
-		Link   link
+        Link * head,
+        Link   link
 ){
-	if (link->prev)
-		link->prev->next = link->next;
-	else
-		(*head) = link->next;
+    if (link->prev)
+        link->prev->next = link->next;
+    else
+        (*head) = link->next;
 
-	if (link->next)
-		link->next->prev = link->prev;
+    if (link->next)
+        link->next->prev = link->prev;
 
-	free(link->data);
-	free(link);
+    free(link->data);
+    free(link);
 }
 
 static Link
 New_link (void *data)
 {
-	Link link;
+    Link link;
 
-	link = malloc(sizeof *link);
+    link = malloc(sizeof *link);
 
-	if (! link)
-		abort();
+    if (! link)
+    {
+#ifdef __EMSCRIPTEN__
+        return NULL;
+#else
+        abort();
+#endif
+    }
 
-	link->data = data;
+    link->data = data;
 
-	return link;
+    return link;
 }
 
 static void *
 Identity (
-		Link      *  pool_anchor,
-		I_mutex      pool_mutex,
+        Link      *  pool_anchor,
+        I_mutex      pool_mutex,
 
-		void      ** anchor,
+        void      ** anchor,
 
-		Create_fn    create_fn
+        Create_fn    create_fn
 ){
-	void * id;
+    void * id;
 
-	id = SDL_AtomicGetPtr(anchor);
+    id = SDL_AtomicGetPtr(anchor);
 
-	if (! id)
-	{
-		I_lock_mutex(&pool_mutex);
-		{
-			id = SDL_AtomicGetPtr(anchor);
+    if (! id)
+    {
+        I_lock_mutex(&pool_mutex);
+        {
+            id = SDL_AtomicGetPtr(anchor);
 
-			if (! id)
-			{
-				id = (*create_fn)();
+            if (! id)
+            {
+                id = (*create_fn)();
 
-				if (! id)
-					abort();
+                if (! id)
+                {
+#ifdef __EMSCRIPTEN__
+                    // Return NULL safely if mutex/cond creation returns NULL in JS environment
+                    I_unlock_mutex(pool_mutex);
+                    return NULL;
+#else
+                    abort();
+#endif
+                }
 
-				Insert_link(pool_anchor, New_link(id));
+                Link new_link = New_link(id);
+                if (new_link)
+                    Insert_link(pool_anchor, new_link);
 
-				SDL_AtomicSetPtr(anchor, id);
-			}
-		}
-		I_unlock_mutex(pool_mutex);
-	}
+                SDL_AtomicSetPtr(anchor, id);
+            }
+        }
+        I_unlock_mutex(pool_mutex);
+    }
 
-	return id;
+    return id;
 }
 
 static int
 Worker (
-		Link link
+        Link link
 ){
-	Thread th;
+    Thread th;
 
-	th = link->data;
+    th = link->data;
 
-	(*th->entry)(th->userdata);
+    (*th->entry)(th->userdata);
 
-	if (SDL_AtomicGet(&i_threads_running))
-	{
-		I_lock_mutex(&i_thread_pool_mutex);
-		{
-			if (SDL_AtomicGet(&i_threads_running))
-			{
-				SDL_DetachThread(th->thread);
-				Free_link(&i_thread_pool, link);
-			}
-		}
-		I_unlock_mutex(i_thread_pool_mutex);
-	}
+    if (SDL_AtomicGet(&i_threads_running))
+    {
+        I_lock_mutex(&i_thread_pool_mutex);
+        {
+            if (SDL_AtomicGet(&i_threads_running))
+            {
+                if (th->thread)
+                    SDL_DetachThread(th->thread);
+                Free_link(&i_thread_pool, link);
+            }
+        }
+        I_unlock_mutex(i_thread_pool_mutex);
+    }
 
-	return 0;
+    return 0;
 }
 
 void
 I_spawn_thread (
-		const char  * name,
-		I_thread_fn   entry,
-		void        * userdata
+        const char  * name,
+        I_thread_fn   entry,
+        void        * userdata
 ){
-	Link   link;
-	Thread th;
+#ifdef __EMSCRIPTEN__
+    // In WebAssembly, run thread task synchronously on the main thread
+    // instead of calling SDL_CreateThread which fails and calls abort().
+    (void)name;
+    (*entry)(userdata);
+    return;
+#else
+    Link   link;
+    Thread th;
 
-	th = malloc(sizeof *th);
+    th = malloc(sizeof *th);
 
-	if (! th)
-		abort();/* this is pretty GNU of me */
+    if (! th)
+        abort();/* this is pretty GNU of me */
 
-	th->entry    = entry;
-	th->userdata = userdata;
+    th->entry    = entry;
+    th->userdata = userdata;
 
-	I_lock_mutex(&i_thread_pool_mutex);
-	{
-		link = Insert_link(&i_thread_pool, New_link(th));
+    I_lock_mutex(&i_thread_pool_mutex);
+    {
+        link = Insert_link(&i_thread_pool, New_link(th));
 
-		if (SDL_AtomicGet(&i_threads_running))
-		{
-			th->thread = SDL_CreateThread(
-					(SDL_ThreadFunction)Worker,
-					name,
-					link
-			);
+        if (SDL_AtomicGet(&i_threads_running))
+        {
+            th->thread = SDL_CreateThread(
+                    (SDL_ThreadFunction)Worker,
+                    name,
+                    link
+            );
 
-			if (! th->thread)
-				abort();
-		}
-	}
-	I_unlock_mutex(i_thread_pool_mutex);
+            if (! th->thread)
+                abort();
+        }
+    }
+    I_unlock_mutex(i_thread_pool_mutex);
+#endif
 }
 
 int
 I_thread_is_stopped (void)
 {
-	return ( ! SDL_AtomicGet(&i_threads_running) );
+    return ( ! SDL_AtomicGet(&i_threads_running) );
 }
 
 void
 I_start_threads (void)
 {
-	i_thread_pool_mutex = SDL_CreateMutex();
-	i_mutex_pool_mutex  = SDL_CreateMutex();
-	i_cond_pool_mutex   = SDL_CreateMutex();
+    i_thread_pool_mutex = SDL_CreateMutex();
+    i_mutex_pool_mutex  = SDL_CreateMutex();
+    i_cond_pool_mutex   = SDL_CreateMutex();
 
-	if (!(
-				i_thread_pool_mutex &&
-				i_mutex_pool_mutex  &&
-				i_cond_pool_mutex
-	)){
-		abort();
-	}
+    if (!(
+                i_thread_pool_mutex &&
+                i_mutex_pool_mutex  &&
+                i_cond_pool_mutex
+    )){
+#ifndef __EMSCRIPTEN__
+        abort();
+#endif
+    }
 }
 
 void
 I_stop_threads (void)
 {
-	Link        link;
-	Link        next;
+    Link        link;
+    Link        next;
 
-	Thread      th;
-	SDL_mutex * mutex;
-	SDL_cond  * cond;
+    Thread      th;
+    SDL_mutex * mutex;
+    SDL_cond  * cond;
 
-	if (i_threads_running.value)
-	{
-		/* rely on the good will of thread-san */
-		SDL_AtomicSet(&i_threads_running, 0);
+    if (i_threads_running.value)
+    {
+        /* rely on the good will of thread-san */
+        SDL_AtomicSet(&i_threads_running, 0);
 
-		I_lock_mutex(&i_thread_pool_mutex);
-		{
-			for (
-					link = i_thread_pool;
-					link;
-					link = next
-			){
-				next = link->next;
-				th   = link->data;
+        I_lock_mutex(&i_thread_pool_mutex);
+        {
+            for (
+                    link = i_thread_pool;
+                    link;
+                    link = next
+            ){
+                next = link->next;
+                th   = link->data;
 
-				SDL_WaitThread(th->thread, NULL);
+                if (th->thread)
+                    SDL_WaitThread(th->thread, NULL);
 
-				free(th);
-				free(link);
-			}
-		}
-		I_unlock_mutex(i_thread_pool_mutex);
+                free(th);
+                free(link);
+            }
+        }
+        I_unlock_mutex(i_thread_pool_mutex);
 
-		for (
-				link = i_mutex_pool;
-				link;
-				link = next
-		){
-			next  = link->next;
-			mutex = link->data;
+        for (
+                link = i_mutex_pool;
+                link;
+                link = next
+        ){
+            next  = link->next;
+            mutex = link->data;
 
-			SDL_DestroyMutex(mutex);
+            if (mutex)
+                SDL_DestroyMutex(mutex);
 
-			free(link);
-		}
+            free(link);
+        }
 
-		for (
-				link = i_cond_pool;
-				link;
-				link = next
-		){
-			next = link->next;
-			cond = link->data;
+        for (
+                link = i_cond_pool;
+                link;
+                link = next
+        ){
+            next = link->next;
+            cond = link->data;
 
-			SDL_DestroyCond(cond);
+            if (cond)
+                SDL_DestroyCond(cond);
 
-			free(link);
-		}
+            free(link);
+        }
 
-		SDL_DestroyMutex(i_thread_pool_mutex);
-		SDL_DestroyMutex(i_mutex_pool_mutex);
-		SDL_DestroyMutex(i_cond_pool_mutex);
-	}
+        if (i_thread_pool_mutex) SDL_DestroyMutex(i_thread_pool_mutex);
+        if (i_mutex_pool_mutex)  SDL_DestroyMutex(i_mutex_pool_mutex);
+        if (i_cond_pool_mutex)   SDL_DestroyMutex(i_cond_pool_mutex);
+    }
 }
 
 void
 I_lock_mutex (
-		I_mutex * anchor
+        I_mutex * anchor
 ){
-	SDL_mutex * mutex;
+    SDL_mutex * mutex;
 
-	mutex = Identity(
-			&i_mutex_pool,
-			i_mutex_pool_mutex,
-			anchor,
-			(Create_fn)SDL_CreateMutex
-	);
+    mutex = Identity(
+            &i_mutex_pool,
+            i_mutex_pool_mutex,
+            anchor,
+            (Create_fn)SDL_CreateMutex
+    );
 
-	if (SDL_LockMutex(mutex) == -1)
-		abort();
+    if (mutex && SDL_LockMutex(mutex) == -1)
+    {
+#ifndef __EMSCRIPTEN__
+        abort();
+#endif
+    }
 }
 
 void
 I_unlock_mutex (
-		I_mutex id
+        I_mutex id
 ){
-	if (SDL_UnlockMutex(id) == -1)
-		abort();
+    if (id && SDL_UnlockMutex(id) == -1)
+    {
+#ifndef __EMSCRIPTEN__
+        abort();
+#endif
+    }
 }
 
 void
 I_hold_cond (
-		I_cond  * cond_anchor,
-		I_mutex   mutex_id
+        I_cond  * cond_anchor,
+        I_mutex   mutex_id
 ){
-	SDL_cond * cond;
+    SDL_cond * cond;
 
-	cond = Identity(
-			&i_cond_pool,
-			i_cond_pool_mutex,
-			cond_anchor,
-			(Create_fn)SDL_CreateCond
-	);
+    cond = Identity(
+            &i_cond_pool,
+            i_cond_pool_mutex,
+            cond_anchor,
+            (Create_fn)SDL_CreateCond
+    );
 
-	if (SDL_CondWait(cond, mutex_id) == -1)
-		abort();
+    if (cond && mutex_id && SDL_CondWait(cond, mutex_id) == -1)
+    {
+#ifndef __EMSCRIPTEN__
+        abort();
+#endif
+    }
 }
 
 void
 I_wake_one_cond (
-		I_cond * anchor
+        I_cond * anchor
 ){
-	SDL_cond * cond;
+    SDL_cond * cond;
 
-	cond = Identity(
-			&i_cond_pool,
-			i_cond_pool_mutex,
-			anchor,
-			(Create_fn)SDL_CreateCond
-	);
+    cond = Identity(
+            &i_cond_pool,
+            i_cond_pool_mutex,
+            anchor,
+            (Create_fn)SDL_CreateCond
+    );
 
-	if (SDL_CondSignal(cond) == -1)
-		abort();
+    if (cond && SDL_CondSignal(cond) == -1)
+    {
+#ifndef __EMSCRIPTEN__
+        abort();
+#endif
+    }
 }
 
 void
 I_wake_all_cond (
-		I_cond * anchor
+        I_cond * anchor
 ){
-	SDL_cond * cond;
+    SDL_cond * cond;
 
-	cond = Identity(
-			&i_cond_pool,
-			i_cond_pool_mutex,
-			anchor,
-			(Create_fn)SDL_CreateCond
-	);
+    cond = Identity(
+            &i_cond_pool,
+            i_cond_pool_mutex,
+            anchor,
+            (Create_fn)SDL_CreateCond
+    );
 
-	if (SDL_CondBroadcast(cond) == -1)
-		abort();
+    if (cond && SDL_CondBroadcast(cond) == -1)
+    {
+#ifndef __EMSCRIPTEN__
+        abort();
+#endif
+    }
 }
 #endif /* HAVE_THREADS */

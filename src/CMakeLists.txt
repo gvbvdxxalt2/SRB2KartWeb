@@ -244,6 +244,18 @@ if(${CMAKE_SYSTEM} MATCHES "Windows") ###set on Windows only
 	"Use SRB2Kart's internal copies of required dependencies (SDL2, PNG, zlib, GME).")
 endif()
 
+# Force SDL to pull GLES2/3 headers instead of Desktop GL
+add_definitions(
+  -DGL_GLEXT_PROTOTYPES
+  -DSDL_DISABLE_IMMINTRIN_H
+  -DUSE_GLES2
+)
+
+if(EMSCRIPTEN)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include GLES2/gl2.h -Wno-error=incompatible-pointer-types -Wno-error=typedef-redefinition -Wno-implicit-function-declaration")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s LEGACY_GL_EMULATION=1 -s GL_FFP_ONLY=1 -s MAX_WEBGL_VERSION=2")
+endif()
+
 if(${SRB2_CONFIG_HAVE_BLUA})
 	add_definitions(-DHAVE_BLUA)
 	set(SRB2_LUA_SOURCES
@@ -562,31 +574,27 @@ endif()
 # underlying compatibility issues that lead to the crashy Web configuration.
 
 target_link_options(SRB2SDL2 PRIVATE
-	"-sUSE_SDL=2"
-    "-sASYNCIFY"
+	"-s USE_SDL=2"
     "-lidbfs.js"
-    "-sEXPORTED_RUNTIME_METHODS=['callMain','FS','ccall','cwrap','IDBFS','HEAPU8','wasmMemory']"
-    "-sEXPORTED_FUNCTIONS=['_main','_free','_malloc']"
-	"-sUSE_SDL_MIXER=2"
-	"-sSDL2_MIXER_FORMATS=['ogg','wav']"
+    "-s EXPORTED_RUNTIME_METHODS=['callMain','FS','ccall','cwrap','IDBFS','HEAPU8','wasmMemory']"
+    "-s EXPORTED_FUNCTIONS=['_main','_free','_malloc']"
+	"-s USE_SDL_MIXER=2"
+	"-s SDL2_MIXER_FORMATS=['ogg','wav']"
 
     # 1. FIX THE CRASH: Increase Stack Size
     # The default is 64KB. We need at least 5MB for SRB2's level loader.
-    "-sSTACK_SIZE=5242880"
+    "-s STACK_SIZE=5242880"
 
     # 2. FIX THE NETWORK: Link your JS Library
     # You must point this to the .js file that contains your 'mergeInto(LibraryManager.library, ...)' code.
     # CHECK THE PATH BELOW: It is likely in 'src/sdl/srb2_web.js' or similar.
     "--js-library=${CMAKE_SOURCE_DIR}/src/sdl/i_net_web.js"
 	"--js-library=${CMAKE_SOURCE_DIR}/src/sdl/emscripten_serverinfo.js"
-
-    # 3. MEMORY STABILITY
-    "-sINITIAL_MEMORY=268435456" # Starts at 256MB
-    "-sALLOW_MEMORY_GROWTH=1"
 )
 
-add_link_options(-sASSERTIONS=2)
-add_link_options(-g)
+add_definitions(
+  -DHAVE_SDLNET
+)
 
 # Globally remove the definition
 remove_definitions(-DNONET)

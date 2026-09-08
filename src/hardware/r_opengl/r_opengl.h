@@ -91,9 +91,85 @@ extern PFNWGLEXTGETSWAPINTERVALPROC wglGetSwapIntervalEXT;
 #endif
 
 #ifdef STATIC_OPENGL
+/* 1.0 Miscellaneous functions */
+#define pglClearColor glClearColor
 #define pglClear glClear
+#define pglColorMask glColorMask
+#define pglAlphaFunc glAlphaFunc
+#define pglBlendFunc glBlendFunc
+#define pglCullFace glCullFace
+#define pglPolygonOffset glPolygonOffset
+#define pglScissor glScissor
+#define pglEnable glEnable
+#define pglDisable glDisable
+#define pglGetFloatv glGetFloatv
 #define pglGetIntegerv glGetIntegerv
 #define pglGetString glGetString
+
+/* Depth Buffer */
+#define pglClearDepth glClearDepth
+#define pglDepthFunc glDepthFunc
+#define pglDepthMask glDepthMask
+#define pglDepthRange glDepthRange
+
+/* Transformation */
+#define pglMatrixMode glMatrixMode
+#define pglViewport glViewport
+#define pglPushMatrix glPushMatrix
+#define pglPopMatrix glPopMatrix
+#define pglLoadIdentity glLoadIdentity
+#define pglMultMatrixf glMultMatrixf
+#define pglMultMatrixd glMultMatrixd
+#define pglRotatef glRotatef
+#define pglScalef glScalef
+#define pglTranslatef glTranslatef
+
+/* Drawing Functions */
+#define pglColor4ubv glColor4ubv
+#define pglVertexPointer glVertexPointer
+#define pglNormalPointer glNormalPointer
+#define pglTexCoordPointer glTexCoordPointer
+#define pglDrawArrays glDrawArrays
+#define pglDrawElements glDrawElements
+#define pglEnableClientState glEnableClientState
+#define pglDisableClientState glDisableClientState
+#define pglClientActiveTexture glClientActiveTexture
+#define pglGenBuffers glGenBuffers
+#define pglBindBuffer glBindBuffer
+#define pglBufferData glBufferData
+#define pglDeleteBuffers glDeleteBuffers
+
+/* Lighting */
+#define pglShadeModel glShadeModel
+#define pglLightfv glLightfv
+#define pglLightModelfv glLightModelfv
+#define pglMaterialfv glMaterialfv
+#define pglMateriali glMateriali
+
+/* Raster functions */
+#define pglPixelStorei glPixelStorei
+#define pglReadPixels glReadPixels
+
+/* Texture mapping */
+#define pglTexEnvi glTexEnvi
+#define pglTexParameteri glTexParameteri
+#define pglTexImage2D glTexImage2D
+
+/* Fog */
+#define pglFogf glFogf
+#define pglFogfv glFogfv
+
+/* 1.1 / 1.3 functions */
+#define pglGenTextures glGenTextures
+#define pglDeleteTextures glDeleteTextures
+#define pglBindTexture glBindTexture
+#define pglCopyTexImage2D glCopyTexImage2D
+#define pglCopyTexSubImage2D glCopyTexSubImage2D
+#define pglActiveTexture glActiveTexture
+#define pglMultiTexCoord2f glMultiTexCoord2f
+#define pglMultiTexCoord2fv glMultiTexCoord2fv
+#define pglColorPointer glColorPointer
+
 #else
 /* 1.0 Miscellaneous functions */
 typedef void (APIENTRY * PFNglClear) (GLbitfield mask);
@@ -112,25 +188,25 @@ static PFNglEnableClientState pglEnableClientState;
 //                                                                     GLOBAL
 // ==========================================================================
 
-extern const GLubyte	*gl_version;
-extern const GLubyte	*gl_renderer;
-extern const GLubyte	*gl_extensions;
+extern const GLubyte    *gl_version;
+extern const GLubyte    *gl_renderer;
+extern const GLubyte    *gl_extensions;
 
-extern RGBA_t			myPaletteData[];
-extern GLint			screen_width;
-extern GLint			screen_height;
-extern GLbyte			screen_depth;
-extern GLint			maximumAnisotropy;
+extern RGBA_t           myPaletteData[];
+extern GLint            screen_width;
+extern GLint            screen_height;
+extern GLbyte           screen_depth;
+extern GLint            maximumAnisotropy;
 
-/**	\brief OpenGL flags for video driver
+/** \brief OpenGL flags for video driver
 */
 extern INT32            oglflags;
 extern GLint            textureformatGL;
 
 typedef enum
 {
-	GLF_NOZBUFREAD = 0x01,
-	GLF_NOTEXENV   = 0x02,
+    GLF_NOZBUFREAD = 0x01,
+    GLF_NOTEXENV   = 0x02,
 } oglflags_t;
 
 #endif

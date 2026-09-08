@@ -373,6 +373,7 @@ typedef GLint (APIENTRY * PFNgluBuild2DMipmaps) (GLenum target, GLint internalFo
 static PFNgluBuild2DMipmaps pgluBuild2DMipmaps;
 
 /* 1.3 functions for multitexturing */
+#ifndef STATIC_OPENGL
 typedef void (APIENTRY *PFNglActiveTexture) (GLenum);
 static PFNglActiveTexture pglActiveTexture;
 typedef void (APIENTRY *PFNglMultiTexCoord2f) (GLenum, GLfloat, GLfloat);
@@ -385,6 +386,7 @@ static PFNglClientActiveTexture pglClientActiveTexture;
 // sky dome needs this
 typedef void    (APIENTRY *PFNglColorPointer)       (GLint, GLenum, GLsizei, const GLvoid*);
 static PFNglColorPointer pglColorPointer;
+#endif
 
 /* 1.2 Parms */
 /* GL_CLAMP_TO_EDGE_EXT */
@@ -611,94 +613,91 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 	"}\n" \
 	"final_color = mix(final_color, fade_color, darkness);\n"
 
-#define GLSL_SOFTWARE_FRAGMENT_SHADER \
-	"uniform sampler2D tex;\n" \
-	"uniform vec4 poly_color;\n" \
-	"uniform vec4 tint_color;\n" \
-	"uniform vec4 fade_color;\n" \
-	"uniform float lighting;\n" \
-	"uniform float fade_start;\n" \
-	"uniform float fade_end;\n" \
-	GLSL_DOOM_COLORMAP \
-	GLSL_DOOM_LIGHT_EQUATION \
-	"void main(void) {\n" \
-		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
-		"vec4 base_color = texel * poly_color;\n" \
-		"vec4 final_color = base_color;\n" \
-		GLSL_SOFTWARE_TINT_EQUATION \
-		GLSL_SOFTWARE_FADE_EQUATION \
-		"final_color.a = texel.a * poly_color.a;\n" \
-		"gl_FragColor = final_color;\n" \
-	"}\0"
+#define GLSL_PRECISION "precision mediump float;\n"
 
-//
-// Water surface shader
-//
-// Mostly guesstimated, rather than the rest being built off Software science.
-// Still needs to distort things underneath/around the water...
-//
+#define GLSL_SOFTWARE_FRAGMENT_SHADER \
+    GLSL_PRECISION \
+    "varying vec2 vTexCoord;\n" \
+    "uniform sampler2D tex;\n" \
+    "uniform vec4 poly_color;\n" \
+    "uniform vec4 tint_color;\n" \
+    "uniform vec4 fade_color;\n" \
+    "uniform float lighting;\n" \
+    "uniform float fade_start;\n" \
+    "uniform float fade_end;\n" \
+    GLSL_DOOM_COLORMAP \
+    GLSL_DOOM_LIGHT_EQUATION \
+    "void main(void) {\n" \
+        "vec4 texel = texture2D(tex, vTexCoord);\n" \
+        "vec4 base_color = texel * poly_color;\n" \
+        "vec4 final_color = base_color;\n" \
+        GLSL_SOFTWARE_TINT_EQUATION \
+        GLSL_SOFTWARE_FADE_EQUATION \
+        "final_color.a = texel.a * poly_color.a;\n" \
+        "gl_FragColor = final_color;\n" \
+    "}\0"
 
 #define GLSL_WATER_FRAGMENT_SHADER \
-	"uniform sampler2D tex;\n" \
-	"uniform vec4 poly_color;\n" \
-	"uniform vec4 tint_color;\n" \
-	"uniform vec4 fade_color;\n" \
-	"uniform float lighting;\n" \
-	"uniform float fade_start;\n" \
-	"uniform float fade_end;\n" \
-	"uniform float leveltime;\n" \
-	"const float freq = 0.025;\n" \
-	"const float amp = 0.025;\n" \
-	"const float speed = 2.0;\n" \
-	"const float pi = 3.14159;\n" \
-	GLSL_DOOM_COLORMAP \
-	GLSL_DOOM_LIGHT_EQUATION \
-	"void main(void) {\n" \
-		"float z = (gl_FragCoord.z / gl_FragCoord.w) / 2.0;\n" \
-		"float a = -pi * (z * freq) + (leveltime * speed);\n" \
-		"float sdistort = sin(a) * amp;\n" \
-		"float cdistort = cos(a) * amp;\n" \
-		"vec4 texel = texture2D(tex, vec2(gl_TexCoord[0].s - sdistort, gl_TexCoord[0].t - cdistort));\n" \
-		"vec4 base_color = texel * poly_color;\n" \
-		"vec4 final_color = base_color;\n" \
-		GLSL_SOFTWARE_TINT_EQUATION \
-		GLSL_SOFTWARE_FADE_EQUATION \
-		"final_color.a = texel.a * poly_color.a;\n" \
-		"gl_FragColor = final_color;\n" \
-	"}\0"
-
-//
-// Fog block shader
-//
-// Alpha of the planes themselves are still slightly off -- see HWR_FogBlockAlpha
-//
+    GLSL_PRECISION \
+    "varying vec2 vTexCoord;\n" \
+    "uniform sampler2D tex;\n" \
+    "uniform vec4 poly_color;\n" \
+    "uniform vec4 tint_color;\n" \
+    "uniform vec4 fade_color;\n" \
+    "uniform float lighting;\n" \
+    "uniform float fade_start;\n" \
+    "uniform float fade_end;\n" \
+    "uniform float leveltime;\n" \
+    "const float freq = 0.025;\n" \
+    "const float amp = 0.025;\n" \
+    "const float speed = 2.0;\n" \
+    "const float pi = 3.14159;\n" \
+    GLSL_DOOM_COLORMAP \
+    GLSL_DOOM_LIGHT_EQUATION \
+    "void main(void) {\n" \
+        "float z = (gl_FragCoord.z / gl_FragCoord.w) / 2.0;\n" \
+        "float a = -pi * (z * freq) + (leveltime * speed);\n" \
+        "float sdistort = sin(a) * amp;\n" \
+        "float cdistort = cos(a) * amp;\n" \
+        "vec4 texel = texture2D(tex, vec2(vTexCoord.s - sdistort, vTexCoord.t - cdistort));\n" \
+        "vec4 base_color = texel * poly_color;\n" \
+        "vec4 final_color = base_color;\n" \
+        GLSL_SOFTWARE_TINT_EQUATION \
+        GLSL_SOFTWARE_FADE_EQUATION \
+        "final_color.a = texel.a * poly_color.a;\n" \
+        "gl_FragColor = final_color;\n" \
+    "}\0"
 
 #define GLSL_FOG_FRAGMENT_SHADER \
-	"uniform vec4 tint_color;\n" \
-	"uniform vec4 fade_color;\n" \
-	"uniform float lighting;\n" \
-	"uniform float fade_start;\n" \
-	"uniform float fade_end;\n" \
-	GLSL_DOOM_COLORMAP \
-	GLSL_DOOM_LIGHT_EQUATION \
-	"void main(void) {\n" \
-		"vec4 base_color = gl_Color;\n" \
-		"vec4 final_color = base_color;\n" \
-		GLSL_SOFTWARE_TINT_EQUATION \
-		GLSL_SOFTWARE_FADE_EQUATION \
-		"gl_FragColor = final_color;\n" \
-	"}\0"
+    GLSL_PRECISION \
+    "varying vec4 vColor;\n" \
+    "uniform vec4 tint_color;\n" \
+    "uniform vec4 fade_color;\n" \
+    "uniform float lighting;\n" \
+    "uniform float fade_start;\n" \
+    "uniform float fade_end;\n" \
+    GLSL_DOOM_COLORMAP \
+    GLSL_DOOM_LIGHT_EQUATION \
+    "void main(void) {\n" \
+        "vec4 base_color = vColor;\n" \
+        "vec4 final_color = base_color;\n" \
+        GLSL_SOFTWARE_TINT_EQUATION \
+        GLSL_SOFTWARE_FADE_EQUATION \
+        "gl_FragColor = final_color;\n" \
+    "}\0"
 
 //
 // GLSL generic fragment shader
 //
 
 #define GLSL_DEFAULT_FRAGMENT_SHADER \
-	"uniform sampler2D tex;\n" \
-	"uniform vec4 poly_color;\n" \
-	"void main(void) {\n" \
-		"gl_FragColor = texture2D(tex, gl_TexCoord[0].st) * poly_color;\n" \
-	"}\0"
+    "precision mediump float;\n" \
+    "varying vec2 vTexCoord;\n" \
+    "uniform sampler2D tex;\n" \
+    "uniform vec4 poly_color;\n" \
+    "void main(void) {\n" \
+        "gl_FragColor = texture2D(tex, vTexCoord) * poly_color;\n" \
+    "}\0"
 
 static const char *fragment_shaders[] = {
 	// Default fragment shader
@@ -740,13 +739,14 @@ static const char *fragment_shaders[] = {
 //
 
 #define GLSL_DEFAULT_VERTEX_SHADER \
-	"void main()\n" \
-	"{\n" \
-		"gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;\n" \
-		"gl_FrontColor = gl_Color;\n" \
-		"gl_TexCoord[0].xy = gl_MultiTexCoord0.xy;\n" \
-		"gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n" \
-	"}\0"
+    "varying vec2 vTexCoord;\n" \
+    "varying vec4 vColor;\n" \
+    "void main()\n" \
+    "{\n" \
+        "gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;\n" \
+        "vColor = gl_Color;\n" \
+        "vTexCoord = gl_MultiTexCoord0.xy;\n" \
+    "}\0"
 
 static const char *vertex_shaders[] = {
 	// Default vertex shader
@@ -780,6 +780,7 @@ static const char *vertex_shaders[] = {
 
 void SetupGLFunc4(void)
 {
+	#ifndef STATIC_OPENGL
 	pglActiveTexture = GetGLFunc("glActiveTexture");
 	pglMultiTexCoord2f = GetGLFunc("glMultiTexCoord2f");
 	pglClientActiveTexture = GetGLFunc("glClientActiveTexture");
@@ -789,6 +790,8 @@ void SetupGLFunc4(void)
 	pglBufferData = GetGLFunc("glBufferData");
 	pglDeleteBuffers = GetGLFunc("glDeleteBuffers");
 	pglColorPointer = GetGLFunc("glColorPointer");
+		#endif
+
 
 #ifdef GL_SHADERS
 	pglCreateShader = GetGLFunc("glCreateShader");

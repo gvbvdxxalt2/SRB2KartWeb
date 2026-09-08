@@ -2,7 +2,8 @@
 
 set(SRB2_CONFIG_SDL2_USEMIXER ON CACHE BOOL "Use SDL2_mixer or regular sdl sound")
 
-if(EMSCRIPTEN)
+# For emscripten
+if(1)
 	set(SRB2_HAVE_MIXER ON)
 	set(SRB2_SDL2_SOUNDIMPL mixer_sound.c)
 else()

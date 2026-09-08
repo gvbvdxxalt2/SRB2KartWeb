@@ -21,6 +21,7 @@
 #endif
 
 #include <emscripten.h>
+void D_SRB2_Draw_Frame(void);
 
 #ifdef __GNUC__
 #include <unistd.h> // for getcwd

@@ -1262,7 +1262,9 @@ static menuitem_t OP_VideoOptionsMenu[] =
 {
 	{IT_STRING | IT_CALL,	NULL,	"Set Resolution...",	M_VideoModeMenu,		 10},
 #if (defined (__unix__) && !defined (MSDOS)) || defined (UNIXCOMMON) || defined (HAVE_SDL)
+#ifndef EMSCRIPTEN
 	{IT_STRING|IT_CVAR,		NULL,	"Fullscreen",			&cv_fullscreen,			 20},
+#endif
 #endif
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
 							NULL,	"Gamma",				&cv_usegamma,			 30},

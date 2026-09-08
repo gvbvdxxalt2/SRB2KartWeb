@@ -284,6 +284,10 @@ async function startGame(options = {}) {
   Module.arguments.push("+addons_option");
   Module.arguments.push("CUSTOM");*/
 
+  /*console.log = debugTextDiv;
+  console.warn = console.log;
+  console.error = console.log;*/
+
   Module.noInitialRun = true;
   Module.print = console.log;
   Module.printErr = console.log;
@@ -292,6 +296,11 @@ async function startGame(options = {}) {
   Module.pauseOnVisibilityChange = false;
   Module.onExit = function () {
     window.location.reload();
+  };
+  Module.onAbort = function(what) {
+    console.error('--- WASM CRASH DETECTED ---');
+    console.error('Abort reason:', what);
+    console.error('Callstack:', new Error().stack);
   };
 
   try {
@@ -651,7 +660,7 @@ window.addEventListener('error', (event) => {
   console.error('Captured JS Error:', errorData);
 
   // Example alert incorporating the stack trace (or first few lines)
-  window.alert(`Uncaught JS Error: ${event.message}\n\nStack Trace:\n${stackTrace || 'No stack available'}`);
+  dialog.alert(`Uncaught JS Error: ${event.message}\n\nStack Trace:\n${stackTrace || 'No stack available'}`);
 }, true);
 
 window.addEventListener('unhandledrejection', (event) => {

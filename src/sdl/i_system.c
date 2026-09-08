@@ -3243,6 +3243,11 @@ void I_Error(const char *error, ...)
 	va_list argptr;
 	char buffer[8192];
 
+	fprintf(stderr, "\n========================================\n");
+    fprintf(stderr, "SRB2 KART FATAL ERROR:\n%s\n", buffer);
+    fprintf(stderr, "========================================\n\n");
+    fflush(stderr);
+
 	// recursive error detecting
 	if (shutdowning)
 	{
