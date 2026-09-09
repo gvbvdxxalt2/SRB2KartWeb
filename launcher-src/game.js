@@ -17,6 +17,8 @@ var loadProgressCurrent = elements.getGPId("loadProgressCurrent");
 var loadProgressCurrentText = elements.getGPId("loadProgressCurrentText");
 loadProgressMain.hidden = true;
 
+const {ASSET_LIST, CACHE_NAME} = require("./assets.js");
+
 var gameResolutionWidth = 0;
 var gameResolutionHeight = 0;
 
@@ -99,79 +101,49 @@ function loadScript() {
   });
 }
 
-var CACHE_NAME = "srb2kart-assets-v1";
 async function downloadAndSaveAssets() {
-  const assetList = [
-    { url: "assets/bonuschars.kart", filename: "bonuschars.kart" },
-    { url: "assets/chars.kart", filename: "chars.kart" },
-    { url: "assets/gfx.kart", filename: "gfx.kart" },
-    { url: "assets/maps.kart", filename: "maps.kart" },
-    { url: "assets/mdls.dat", filename: "mdls.dat" },
-    { url: "assets/music.kart", filename: "music.kart" },
-    { url: "assets/sounds.kart", filename: "sounds.kart" },
-    { url: "assets/srb2.srb", filename: "srb2.srb" },
-    { url: "assets/textures.kart", filename: "textures.kart" },
-  ];
-  // 1. Open the browser's cache storage
-  const cache = await caches.open(CACHE_NAME);
+  var cache = await caches.open(CACHE_NAME);
+  var assetCount = 0;
+  var assetLength = ASSET_LIST.length;
 
-  for (const asset of assetList) {
-    //console.log(`Checking storage for ${asset.filename}...`);
+  for (var asset of ASSET_LIST) {
 
-    // 2. Check if we already have the file in cache
+    //Why not show the user how many resources are needed and currently finished?
+    loaderContent.textContent = `[${assetCount + 1}/${assetLength} resources]`;
+
     var response = await cache.match(asset.url);
     var didCache = false;
 
     if (response) {
-      // HIT: We found it!
-      //console.log(`[CACHE HIT] Loading ${asset.filename} from disk.`);
-      loaderContent.textContent = "";
       didCache = true;
     } else {
-      // MISS: We need to download it
-      //console.log(
-      //  `[CACHE MISS] Downloading ${asset.filename} from internet...`,
-      //);
-      loaderContent.textContent = "";
-
       try {
-        // --- NEW CODE START ---
-
-        // 1. Manually fetch the file first to check for errors
-        //console.log(`[NETWORK] Fetching ${asset.url}...`);
         const request = new Request(asset.url);
         loadProgressMain.hidden = false;
         loadProgressCurrentText.textContent = "Requesting resource...";
         loadProgressCurrent.style.width = "0%";
         const networkResponse = await fetch(request);
 
-        // 2. Check for 404s or Server Errors
         if (!networkResponse.ok) {
           throw new Error(
             `Server returned ${networkResponse.status} ${networkResponse.statusText} for file: ${asset.url}`,
           );
         }
 
-        // 3. Put the successful response into the cache
-        // We must clone() it because the response body can only be read once
         cache.put(request, networkResponse.clone()).catch((e) => {
           console.warn(`Unable to put in cache, it won't load fast next time. ${e}`);
         });
 
-        // 4. Use the network response immediately so we don't have to look it up again
         response = networkResponse;
 
-        // --- NEW CODE END ---
       } catch (err) {
         console.error(`FATAL ERROR: Could not load ${asset.url}`);
-        // Update the loading screen so you can see it without opening console
         loaderContent.textContent = `ERROR: ${err.message}`;
         loadProgressMain.hidden = true;
         throw err;
       }
     }
 
-    // 3. Read the file from cache into a buffer
     var buffer = null;
     if (!didCache) {
       var contentLength = response.headers.get('content-length');
@@ -231,12 +203,13 @@ async function downloadAndSaveAssets() {
     }
     var data = new Uint8Array(buffer);
 
-    // 4. Write to the Game's Virtual RAM (MEMFS)
-    // This is fast because we are reading from disk, not network
+    //This is probably sync so it won't display but whatever.
     loadProgressCurrentText.textContent = `Attaching resource "${asset.filename}"...`;
     FS.writeFile(asset.filename, data);
     
     loadProgressMain.hidden = true;
+
+    assetCount += 1;
   }
 }
 
@@ -318,14 +291,7 @@ async function startGame(options = {}) {
   launcherMain.hidden = true;
   var { targetX, targetY } = getTargetSize();
 
-  Module.arguments = [
-    //"-connect",
-    //"0.0.0.0"
-    /*'-width',
-    ""+targetX,
-    '-height',
-    ""+targetY*/
-  ];
+  Module.arguments = [];
   if (serverOpts) {
     Module.arguments.push("-server");
     if (serverOpts.dedicated) {
@@ -345,17 +311,6 @@ async function startGame(options = {}) {
     }
   }
 
-  /*Module.arguments.push("-mb");
-  Module.arguments.push("250");
-  Module.arguments.push("+drawdist");
-  Module.arguments.push("2048");
-  Module.arguments.push("+addons_option");
-  Module.arguments.push("CUSTOM");*/
-
-  /*console.log = debugTextDiv;
-  console.warn = console.log;
-  console.error = console.log;*/
-
   Module.noInitialRun = true;
   Module.print = console.log;
   Module.printErr = console.log;
@@ -373,21 +328,6 @@ async function startGame(options = {}) {
 
   try {
     await loadScript();
-    /*const originalCcall = Module.ccall;
-    Module.ccall = function (name, returnType, argumentTypes, argumentsList, options) {
-      debugTextDiv("WASM ccall:", name, argumentTypes, argumentsList);
-      try {
-        return originalCcall.call(this, name, returnType, argumentTypes, argumentsList, options);
-      } catch (error) {
-        debugTextDiv("WASM ccall failed:", name, {
-          returnType,
-          argumentTypes,
-          argumentsList,
-          error,
-        });
-        throw error;
-      }
-    };*/
   } catch (e) {
     dialog.alert(
       "Error loading the game, look in the console for full error. \n" + e,
@@ -407,27 +347,11 @@ window.StartedMainLoopCallback = function () {
   didStart = true;
   gameCanvas.hidden = false;
   window.ChangeResolution();
-  function sendConnectCommand() {
-    if (connectAddr) {
-      //Javascript side patch because we can't
-      //pass a connect flag into Module.arguments without causing the resize logic to crash.
-      //Module.ccall('SRB2_SendGreenTerminal', 'void', ['string'], [`connect ${connectAddr}\n`]);
-      connectAddr = null;
-    }
-  }
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      sendConnectCommand();
-    });
-  }, 500);
 
-  // Add click listener after canvas is shown
   gameCanvas.addEventListener("click", () => {
-    //console.log("Canvas clicked, locking mouse");
     LockMouse();
   });
 
-  // Add mousemove listener for manual mouse delta handling
   document.addEventListener("mousemove", (e) => {
     if (document.pointerLockElement === gameCanvas) {
       Module.ccall("SRB2_AddMouseDelta", "void", ["number", "number"], [
@@ -438,27 +362,6 @@ window.StartedMainLoopCallback = function () {
   });
 
   startupTouchControls();
-
-  function resumeAudio() {
-    // SDL2 creates an AudioContext on the Module
-    if (Module.SDL2 && Module.SDL2.audioContext) {
-      if (Module.SDL2.audioContext.state === "suspended") {
-        Module.SDL2.audioContext.resume().then(() => {
-          //console.log("AudioContext resumed!");
-        });
-      }
-    }
-
-    // Also try the standard web audio context just in case
-    var AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-      // If there's a global context hidden somewhere
-    }
-  }
-
-  // Try to resume immediately (will likely fail, but worth a shot)
-  resumeAudio();
-
 
   var isSyncing = false;
   setInterval(() => {
@@ -486,31 +389,6 @@ window.StartedMainLoopCallback = function () {
 window.addEventListener("resize", () => {
   window.ChangeResolution();
 });
-// SRB2 Gametype Constants
-const GT_COOP = 0;
-const GT_COMPETITION = 1;
-const GT_RACE = 2;
-const GT_MATCH = 3;
-const GT_TAG = 4;
-const GT_CTF = 5;
-
-// Mock Server Fetch
-async function fetchMS() {
-  return [
-    {
-      ip: "152.26.89.206:5029",
-      name: "Classic Co-op Adventure",
-      version: "2.2.13",
-      players: 2,
-      max_players: 8,
-      gametype: GT_COOP,
-    },
-  ];
-}
-
-// ----------------------------------------------------
-// THE CRITICAL FUNCTION CALLED BY C
-// ----------------------------------------------------
 
 var LockMouse = () => {
   if (touchState.ingameTouch) {
@@ -678,17 +556,8 @@ gameCanvas.addEventListener("touchend", function (e) {
     e.preventDefault();
 }, { passive: false });
 
-//Intentional debug logic, keep the if so it can be turned on and off.
-if (false) {
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "q") {
-      var gl =
-        gameCanvas.getContext("webgl2") || gameCanvas.getContext("webgl");
-      window.alert(gl.getError());
-    }
-  });
-}
 /*
+School computer debugging stuff here
 var textarea = document.createElement("textarea");
 textarea.style.width = "300px";
 textarea.style.height = "300px";
@@ -704,15 +573,12 @@ async function debugTextDiv(...content) {
 }
 window.debugTextDiv = debugTextDiv;*/
 
-// 1. Synchronous runtime errors & resource failures
 window.addEventListener('error', (event) => {
-  // Check if it's a resource loading error (like a failed <img> or <script>)
   if (event.target && (event.target.tagName === 'IMG' || event.target.tagName === 'SCRIPT')) {
     console.error('Resource failed to load:', event.target);
     return;
   }
 
-  // Extract the full stack trace if available
   const errorObj = event.error;
   const stackTrace = errorObj && errorObj.stack ? errorObj.stack : null;
 
@@ -724,17 +590,9 @@ window.addEventListener('error', (event) => {
     stack: stackTrace
   };
 
-  // Log the complete error object with stack trace to console
   console.error('Captured JS Error:', errorData);
 
-  // Example alert incorporating the stack trace (or first few lines)
   dialog.alert(`Uncaught JS Error: ${event.message}\n\nStack Trace:\n${stackTrace || 'No stack available'}`);
 }, true);
-
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled Promise Rejection:', {
-    reason: event.reason // The error or message passed to reject()
-  });
-});
 
 module.exports = { startGame, enableStartServer, disableStartServer };

@@ -20,17 +20,6 @@ module.exports = [
 
       {
         element: "div",
-        gid: "loaderContent",
-        textContent: "Loading...",
-        style: {
-          textAlign: "center",
-          fontWeight: "bold",
-          color: "#ffffff",
-        },
-      },
-
-      {
-        element: "div",
         gid: "loadProgressMain",
         className: "loadProgressMain",
         children: [
@@ -45,7 +34,18 @@ module.exports = [
             className: "loadProgressCurrentText",
           }
         ]
-      }
+      },
+
+      {
+        element: "div",
+        gid: "loaderContent",
+        textContent: "Loading...",
+        style: {
+          textAlign: "center",
+          fontWeight: "bold",
+          color: "#ffffff",
+        },
+      },
 
       ////////////////////////////////////////
     ],
