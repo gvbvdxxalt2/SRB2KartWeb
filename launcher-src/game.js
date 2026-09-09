@@ -6,6 +6,7 @@ var dialog = require("./dialog.js");
 var IDBFS = null;
 var gameCanvas = elements.getGPId("gameCanvas");
 var didStart = false;
+var beforeUnloadQuit = false; //Becomes true if the game is quitting because of before unload event.
 var loaderContent = elements.getGPId("loaderContent");
 var serverOpts = null;
 var launcherMain = elements.getGPId("launcherMain");
@@ -15,7 +16,9 @@ var resolutionChangeMethod = "safe";
 var loadProgressMain = elements.getGPId("loadProgressMain");
 var loadProgressCurrent = elements.getGPId("loadProgressCurrent");
 var loadProgressCurrentText = elements.getGPId("loadProgressCurrentText");
+var loaderCacheWarning = elements.getGPId("loaderCacheWarning");
 loadProgressMain.hidden = true;
+loaderCacheWarning.hidden = true;
 
 const {ASSET_LIST, CACHE_NAME} = require("./assets.js");
 
@@ -181,6 +184,7 @@ async function downloadAndSaveAssets() {
       });
 
       var cachePromise = cache.put(asset.url, trackedResponse.clone()).catch((e) => {
+        loaderCacheWarning.hidden = false;
         console.warn(`Unable to put in cache: ${e}`);
       });
 
@@ -312,6 +316,9 @@ async function startGame(options = {}) {
   Module.onRuntimeInitialized = initGame;
   Module.pauseOnVisibilityChange = false;
   Module.onExit = function () {
+    if (beforeUnloadQuit) {
+      return;
+    }
     window.location.reload();
   };
   Module.onAbort = function(what) {
@@ -588,5 +595,12 @@ window.addEventListener('error', (event) => {
 
   dialog.alert(`Uncaught JS Error: ${event.message}\n\nStack Trace:\n${stackTrace || 'No stack available'}`);
 }, true);
+
+window.addEventListener("beforeunload", () => {
+  if (didStart) {
+    beforeUnloadQuit = true;
+    //Module.ccall("SRB2_BeforeUnloadHandler", "void", [], []);
+  }
+});
 
 module.exports = { startGame, enableStartServer, disableStartServer };
