@@ -38,7 +38,7 @@ a:hover {
   background: url("images/launcherbg.png") center/cover no-repeat;
   pointer-events: none;
   image-rendering: pixelated;
-  filter: brightness(0.6);
+  filter: brightness(0.5);
 }
 
 .launcherMain {

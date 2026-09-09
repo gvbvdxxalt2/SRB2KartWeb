@@ -30,13 +30,7 @@ touchConfigureButton.addEventListener("click", function () {
 
 require("./relayconfig.js");
 
-window.requestAnimationFrame = function (r) {
-  return setTimeout(r, 1);
-};
-
-window.cancelAnimationFrame = function (r) {
-  return clearTimeout(r);
-};
+require("./frameworker.js");
 
 //var relay = require("./oldnet");
 //var relayURL = "wss://rczylh-3000.csb.app/";

@@ -42,7 +42,7 @@ module.exports = [
         textContent: "Loading...",
         style: {
           textAlign: "center",
-          fontWeight: "bold",
+          fontSize: "20px",
           color: "#ffffff",
         },
       },
