@@ -6,6 +6,8 @@
 
 [SRB2Kart Web](https://kartweb.gvbvdxx.me) is a port of [SRB2Kart](https://srb2.org/mods/) to WASM (Emscripten) to play in web browsers.
 
+[Live URL of this port.](https://kartweb.gvbvdxx.me)
+
 ## Disclaimer
 
 Kart Krew is in no way affiliated with SEGA or Sonic Team. We do not claim ownership of any of SEGA's intellectual property used in SRB2.
