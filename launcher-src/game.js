@@ -62,22 +62,10 @@ async function keepAlive() {
       "srb2_game_running",
       { mode: "exclusive" },
       async () => {
-        await new Promise((resolve) => {});
+        return await new Promise((resolve) => {});
       },
     );
   }
-
-  startAudioKeepAlive();
-}
-
-function startAudioKeepAlive() {
-  const context = new AudioContext();
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  gain.gain.value = 0.0001; // Inaudible
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
 }
 
 function enableStartServer(dedicated = false) {
@@ -109,7 +97,7 @@ async function downloadAndSaveAssets() {
   for (var asset of ASSET_LIST) {
 
     //Why not show the user how many resources are needed and currently finished?
-    loaderContent.textContent = `[${assetCount + 1}/${assetLength} resources]`;
+    loaderContent.textContent = `[${assetCount+1}/${assetLength} resources]`;
 
     var response = await cache.match(asset.url);
     var didCache = false;
