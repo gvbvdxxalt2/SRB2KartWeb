@@ -12,6 +12,11 @@ var launcherMain = elements.getGPId("launcherMain");
 var loaderMain = elements.getGPId("loaderMain");
 var resolutionChangeMethod = "safe";
 
+var loadProgressMain = elements.getGPId("loadProgressMain");
+var loadProgressCurrent = elements.getGPId("loadProgressCurrent");
+var loadProgressCurrentText = elements.getGPId("loadProgressCurrentText");
+loadProgressMain.hidden = true;
+
 var gameResolutionWidth = 0;
 var gameResolutionHeight = 0;
 
@@ -94,7 +99,7 @@ function loadScript() {
   });
 }
 
-var CACHE_NAME = "srb2-assets-v1";
+var CACHE_NAME = "srb2kart-assets-v1";
 async function downloadAndSaveAssets() {
   const assetList = [
     { url: "assets/bonuschars.kart", filename: "bonuschars.kart" },
@@ -114,18 +119,20 @@ async function downloadAndSaveAssets() {
     //console.log(`Checking storage for ${asset.filename}...`);
 
     // 2. Check if we already have the file in cache
-    let response = await cache.match(asset.url);
+    var response = await cache.match(asset.url);
+    var didCache = false;
 
     if (response) {
       // HIT: We found it!
       //console.log(`[CACHE HIT] Loading ${asset.filename} from disk.`);
-      loaderContent.textContent = `Loading ${asset.filename} from cache...`;
+      loaderContent.textContent = "";
+      didCache = true;
     } else {
       // MISS: We need to download it
       //console.log(
       //  `[CACHE MISS] Downloading ${asset.filename} from internet...`,
       //);
-      loaderContent.textContent = `Downloading ${asset.filename}... (This may take a few minutes on first load!)`;
+      loaderContent.textContent = "";
 
       try {
         // --- NEW CODE START ---
@@ -133,6 +140,9 @@ async function downloadAndSaveAssets() {
         // 1. Manually fetch the file first to check for errors
         //console.log(`[NETWORK] Fetching ${asset.url}...`);
         const request = new Request(asset.url);
+        loadProgressMain.hidden = false;
+        loadProgressCurrentText.textContent = "Requesting resource...";
+        loadProgressCurrent.style.width = "0%";
         const networkResponse = await fetch(request);
 
         // 2. Check for 404s or Server Errors
@@ -144,11 +154,9 @@ async function downloadAndSaveAssets() {
 
         // 3. Put the successful response into the cache
         // We must clone() it because the response body can only be read once
-        try{
-          await cache.put(request, networkResponse.clone());
-        }catch(e){
+        cache.put(request, networkResponse.clone()).catch((e) => {
           console.warn(`Unable to put in cache, it won't load fast next time. ${e}`);
-        }
+        });
 
         // 4. Use the network response immediately so we don't have to look it up again
         response = networkResponse;
@@ -158,17 +166,77 @@ async function downloadAndSaveAssets() {
         console.error(`FATAL ERROR: Could not load ${asset.url}`);
         // Update the loading screen so you can see it without opening console
         loaderContent.textContent = `ERROR: ${err.message}`;
+        loadProgressMain.hidden = true;
         throw err;
       }
     }
 
     // 3. Read the file from cache into a buffer
-    const buffer = await response.arrayBuffer();
-    const data = new Uint8Array(buffer);
+    var buffer = null;
+    if (!didCache) {
+      var contentLength = response.headers.get('content-length');
+      var total = contentLength ? parseInt(contentLength, 10) : 0;
+      var reader = response.body.getReader();
+      var loaded = 0;
+
+      if (total == 0) {
+        loadProgressMain.hidden = true;
+      }
+
+      function updatePercent() {
+        var percent = total ? (loaded / total) * 100 : 0;
+        if (percent < 0) {
+          percent = 0; //Somehow going to negatives? Just cap it anyways.
+        }
+        if (percent > 100) {
+          percent = 100; //Why are we going past 100%? Just cap it anyways.
+        }
+        loadProgressCurrent.style.width = percent + "%";
+        loadProgressCurrentText.textContent = `Downloading "${asset.filename}"... (${Math.round(percent)}%)`;
+      }
+
+      updatePercent();
+
+      var stream = new ReadableStream({
+        async start(controller) {
+          while (true) {
+
+            updatePercent();
+
+            const { done, value } = await reader.read();
+
+            if (done) {
+              controller.close();
+              break;
+            }
+
+            loaded += value.byteLength;
+            updatePercent();
+
+            controller.enqueue(value);
+          }
+        }
+      });
+
+      var trackedResponse = new Response(stream, {
+        headers: response.headers,
+        status: response.status,
+        statusText: response.statusText
+      });
+
+      buffer = await trackedResponse.arrayBuffer();
+    } else {
+      loadProgressCurrentText.textContent = `Pulling "${asset.filename}" from cache...`;
+      buffer = await response.arrayBuffer();
+    }
+    var data = new Uint8Array(buffer);
 
     // 4. Write to the Game's Virtual RAM (MEMFS)
     // This is fast because we are reading from disk, not network
+    loadProgressCurrentText.textContent = `Attaching resource "${asset.filename}"...`;
     FS.writeFile(asset.filename, data);
+    
+    loadProgressMain.hidden = true;
   }
 }
 

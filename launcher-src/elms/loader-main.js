@@ -29,6 +29,24 @@ module.exports = [
         },
       },
 
+      {
+        element: "div",
+        gid: "loadProgressMain",
+        className: "loadProgressMain",
+        children: [
+          {
+            element: "div",
+            gid: "loadProgressCurrent",
+            className: "loadProgressCurrent"
+          },
+          {
+            element: "span",
+            gid: "loadProgressCurrentText",
+            className: "loadProgressCurrentText",
+          }
+        ]
+      }
+
       ////////////////////////////////////////
     ],
   },
