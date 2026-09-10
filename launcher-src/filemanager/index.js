@@ -326,6 +326,9 @@ document.addEventListener("keydown", function (e) {
 window.addEventListener("click", function () {
   clickDropdownMenu.hidden = true;
 });
+fileListContainer.addEventListener("scroll", function () {
+  clickDropdownMenu.hidden = true;
+});
 function showDropdownMenu(e) {
   clickDropdownMenu.style.top = e.clientY + "px";
   clickDropdownMenu.style.left = e.clientX + "px";
