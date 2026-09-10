@@ -3,6 +3,7 @@ module.exports = [
     element: "style",
     textContent: require("./styles.css"),
   },
+  ...require("../elms/pixel3-font.js"),
   {
     element: "style",
     textContent: "[hidden] { display: none; }",

@@ -151,7 +151,7 @@ async function downloadAndSaveAssets() {
           percent = 100; //Why are we going past 100%? Just cap it anyways.
         }
         loadProgressCurrent.style.width = percent + "%";
-        loadProgressCurrentText.textContent = `Downloading "${asset.filename}"... (${Math.round(percent)}%)`;
+        loadProgressCurrentText.textContent = `Downloading "${asset.filename}"... (${percent.toFixed(1)}%)`;
       }
 
       updatePercent();
