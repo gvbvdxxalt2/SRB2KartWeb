@@ -151,18 +151,33 @@ static const char *NET_GetNodeAddress(INT32 node)
 
 static const char *NET_GetBanAddress(size_t ban)
 {
-    if (ban > numbans) return NULL;
+    if (ban >= numbans) return NULL;
+    
+    // Explicitly return IP string instead of formatting RelayID
+    if (banned[ban].address.ip[0] != '\0') {
+        return banned[ban].address.ip;
+    }
+    
     return NET_AddrToStr(&banned[ban].address);
 }
 
 static boolean NET_cmpaddr(IPaddress* a, IPaddress* b)
 {
 #ifdef EMSCRIPTEN
-    if (a->host == 0 || b->host == 0) return false;
-    return (a->host == b->host);
-#else
-    if (a->host == b->host && a->port == b->port) return true;
+    // Primary: Compare by 32-bit numerical IP address
+    if (a->host != 0 && b->host != 0 && a->host == b->host) {
+        return true;
+    }
+
+    // Secondary: Compare string representations if host wasn't parsed yet
+    if (a->ip[0] != '\0' && b->ip[0] != '\0' && strcmp(a->ip, b->ip) == 0) {
+        return true;
+    }
+
+    // DO NOT compare relayid here — relay IDs are temporary connection slots!
     return false;
+#else
+    return (a->host == b->host && a->port == b->port);
 #endif
 }
 
@@ -522,14 +537,31 @@ static boolean NET_OpenSocket(void)
 // -------------------------------------------------------------------------
 static boolean NET_Ban(INT32 node)
 {
-    if (numbans == MAXBANS) return false;
-    M_Memcpy(&banned[numbans], &clientaddress[node], sizeof (IPaddress));
+    if (numbans >= MAXBANS) return false;
+    if (node < 1 || node >= MAXNETNODES) return false;
+
+    // 1. Copy client address struct
+    M_Memcpy(&banned[numbans].address, &clientaddress[node], sizeof(IPaddress));
     banned[numbans].address.port = 0;
-    
-    // Default reason (since I_Ban doesn't accept arguments)
+
+    // 2. If host was missing, compute it from the string
+    if (banned[numbans].address.host == 0 && banned[numbans].address.ip[0] != '\0') {
+        banned[numbans].address.host = StringToAddr(banned[numbans].address.ip);
+    }
+
+    // 3. If ip string was missing, compute it from host
+    if (banned[numbans].address.ip[0] == '\0' && banned[numbans].address.host != 0) {
+        sprintf(banned[numbans].address.ip, "%u.%u.%u.%u",
+            (banned[numbans].address.host >> 24) & 0xFF,
+            (banned[numbans].address.host >> 16) & 0xFF,
+            (banned[numbans].address.host >> 8) & 0xFF,
+            banned[numbans].address.host & 0xFF);
+    }
+
 #ifdef EMSCRIPTEN
     banned[numbans].reason = Z_StrDup("Manual Ban");
     banned[numbans].username = Z_StrDup("Unknown");
+    banned[numbans].timestamp = NO_BAN_TIME;
 #endif
 
     numbans++;
@@ -563,6 +595,19 @@ static boolean NET_SetBanAddress(const char *address, const char *mask)
 
 static void NET_ClearBans(void)
 {
+#ifdef EMSCRIPTEN
+    for (size_t i = 0; i < numbans; i++) {
+        if (banned[i].username) {
+            Z_Free(banned[i].username);
+            banned[i].username = NULL;
+        }
+        if (banned[i].reason) {
+            Z_Free(banned[i].reason);
+            banned[i].reason = NULL;
+        }
+    }
+#endif
+    memset(banned, 0, sizeof(banned));
     numbans = 0;
 }
 #endif
