@@ -10,6 +10,28 @@ body {
     overflow-y: auto;
 }
 
+.fileManagerMenuButton {
+  all: unset;
+  height: 100%;
+  background: #000b9e;
+  color: rgba(255,255,255);
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  flex-grow: 0;
+  user-select: none;
+  border-radius: 4px;
+  box-sizing: border-box;
+  padding: 10px 10px;
+  gap: 2px;
+}
+.fileManagerMenuButton:hover {
+  background: #000dc4;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .fileManagerMenuBar {
     position: fixed;
     top: 0px;
@@ -20,16 +42,19 @@ body {
     color: #ffffff;
     display: flex;
     align-items: center;
-    padding: 0 10px;
     box-sizing: border-box;
     z-index: 1000;
+    overflow: auto;
 }
 
 .fileManagerPathBar {
-    all: unset;
-    color: #ffffff;
-    width: calc(100% - 100px);
-    height: 100%;
+  all: unset;
+  color: #ffffff;
+  height: 100%;
+  flex-grow: 1;
+  font-size: 18px;
+  padding: 10px 10px;
+  box-sizing: border-box;
 }
 
 .loadingScreen {
@@ -53,10 +78,9 @@ body {
 .fileList {
     position: fixed;
     top: 40px;
-    left: 200px;
-    width: calc(100% - 200px);
+    left: 0px;
+    width: calc(100% - 0px);
     height: calc(100% - 40px);
-    background: #00469c;
     display: flex;
     flex-direction: column;
     overflow: auto;
@@ -67,7 +91,7 @@ body {
     border-style: solid;
     border-width: 2px;
     border-color: rgba(0,0,0,0);
-    border-bottom-color: #0048c4;
+    border-bottom-color: #030065;
     cursor: pointer;
     color: #ffffff;
     display: flex;
@@ -79,13 +103,13 @@ body {
   border-color: #00ff00;
 }
 .fileListItemSize {
-  color: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.5);
   font-size: 14px;
 }
 
 .fileListItem:hover {
     text-decoration: underline;
-    background-color: #0073ff;
+    background-color: rgba(255,255,255,0.2);
 }
 
 .clickDropdownMenu {
@@ -223,3 +247,4 @@ body {
   height: 100%;
   pointer-events: none;
 }
+

@@ -1,3 +1,5 @@
+var IMAGES = require("./images.js");
+
 module.exports = [
   {
     element: "style",
@@ -19,11 +21,32 @@ module.exports = [
     className: "fileManagerMenuBar",
     children: [
       {
+        element: "a",
+        className: "fileManagerMenuButton",
+        children: [
+          {
+            element: "div",
+            className: "fileManagerImageContainer",
+            children: [
+              {
+                element: "img",
+                src: IMAGES.UP,
+              }
+            ]
+          },
+          {
+            element: "span",
+            textContent: "Return to game",
+          }
+        ],
+        href: "/"
+      },
+      {
         element: "input",
         type: "text",
         gid: "filePathInput",
         className: "fileManagerPathBar",
-      },
+      }
     ],
   },
   {

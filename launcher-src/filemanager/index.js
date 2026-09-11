@@ -86,10 +86,7 @@ var dragFileTarget = null;
 
 async function handleMoveDrag(dragFile, dragFileTarget) {
   var isMulti = Object.keys(multiSelectList).length > 0;
-  var multiFiles = [];
-  for (var file of Object.keys(multiSelectList)) {
-    multiFiles.push(file);
-  }
+  var multiFiles = Object.keys(multiSelectList);
   if (!dragFile || !dragFileTarget) {
     return;
   }
@@ -122,7 +119,7 @@ function getFileItemEventHandlers(fullPath,fileName,stat,isDir) {
       fullPath,fileName,stat,isDir
     };
   }
-  function ondragend() {
+  function ondragend(event) {
     handleMoveDrag(dragFile, dragFileTarget);
     dragFile = null;
     dragFileTarget = null;
@@ -142,6 +139,9 @@ function getFileItemEventHandlers(fullPath,fileName,stat,isDir) {
       event.preventDefault();
     },
     ondragover: function (event) {
+      if (!dragFile) {
+        return;
+      }
       if (fullPath == dragFile.fullPath) {
         return;
       }
@@ -339,6 +339,29 @@ function refreshFileList(keepSelectList = false) {
   _previousWorkingPath = currentPath;
 }
 
+window.addEventListener("drop", (e) => {
+  //https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
+  if ([...e.dataTransfer.items].some((item) => item.kind === "file")) {
+    e.preventDefault();
+  }
+});
+
+fileListContainer.addEventListener("drop", function (e) {
+  if (e.dataTransfer.files.length > 0) {
+    uploadFiles(e.dataTransfer.files);
+    e.preventDefault();
+  }
+});
+
+fileListContainer.addEventListener("dragover", function (e) {
+  const fileItems = [...e.dataTransfer.items].filter(
+    (item) => item.kind === "file",
+  );
+  if (fileItems.length > 0) {
+    e.preventDefault();
+  }
+});
+
 function selectAll(noUnselect) {
   var alreadySelectedCount = 0;
   for (var file of filesCurrentlyDisplayed) {
@@ -387,11 +410,90 @@ window.addEventListener("click", function () {
 fileListContainer.addEventListener("scroll", function () {
   clickDropdownMenu.hidden = true;
 });
+
+async function uploadFiles(files) {
+  if (!files.length) {
+                return;
+            }
+
+            loadingScreen.hidden = false;
+            loadingScreen.textContent = "Preparing files...";
+
+            // Show notice once
+            if (!didDisplayDataLossNotice) {
+                didDisplayDataLossNotice = true;
+                dialog.alert(
+                    "NOTICE!\n"+
+                    "When adding lots of files (usually above 1.5GB) your save data and other files may become corrupt.\n"+
+                    "This is a bug I can't fix myself due to restrictions on web browsers!\n"+
+                    "If you have any important save data, you can zip files by right clicking a folder and clicking \"Download (Save to zip)\"."
+                );
+            }
+
+            let currentIndex = 0;
+
+            function processNextFile() {
+                if (currentIndex >= files.length) {
+                    // All files written to memory, now do ONE single syncfs call!
+                    loadingScreen.textContent = "Saving changes to disk...";
+                    
+                    syncFs().then(() => {
+                        loadingScreen.hidden = true;
+                        refreshFileList();
+                        console.log("All files uploaded and synced successfully.");
+                    }).catch((err) => {
+                        loadingScreen.hidden = true;
+                        console.error("Sync error after batch upload:", err);
+                        alert("Error saving files to persistent storage. Storage might be full.");
+                    });
+                    return;
+                }
+
+                var file = files[currentIndex];
+                var fullPath = joinPaths(currentPath, file.name);
+                loadingScreen.textContent = `Uploading "${file.name}" (${currentIndex + 1}/${files.length})...`;
+
+                var reader = new FileReader();
+                reader.onload = function () {
+                    var arrayBuffer = reader.result;
+                    if (!arrayBuffer || arrayBuffer.byteLength === 0) return;
+
+                    var uint8Array = new Uint8Array(arrayBuffer.slice(0));
+
+                    // Ensure parent folders exist so IDBFS metadata doesn't desync
+                    var lastSlash = fullPath.lastIndexOf('/');
+                    if (lastSlash !== -1) {
+                        FS.mkdirTree(fullPath.substring(0, lastSlash));
+                    }
+
+                    FS.writeFile(fullPath, uint8Array);
+                    currentIndex++;
+                    processNextFile();
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            processNextFile();
+}
+
 function showDropdownMenu(e) {
   clickDropdownMenu.style.top = e.clientY + "px";
   clickDropdownMenu.style.left = e.clientX + "px";
   clickDropdownMenu.hidden = false;
   elements.setInnerJSON(clickDropdownMenu, [
+    {
+      element: "div",
+      className: "dropdownItem",
+      children: [
+          {
+            element: "span",
+            textContent: `Toggle Select All (CTRL+A)`,
+          }
+        ],
+      onclick: function () {
+        selectAll();
+      },
+    },
     {
       element: "div",
       className: "dropdownItem",
@@ -510,68 +612,7 @@ function showDropdownMenu(e) {
         fileInput.multiple = true;
         fileInput.onchange = function () {
             var files = fileInput.files;
-            if (!files.length) {
-                return;
-            }
-
-            loadingScreen.hidden = false;
-            loadingScreen.textContent = "Preparing files...";
-
-            // Show notice once
-            if (!didDisplayDataLossNotice) {
-                didDisplayDataLossNotice = true;
-                dialog.alert(
-                    "NOTICE!\n"+
-                    "When adding lots of files (usually above 1.5GB) your save data and other files may become corrupt.\n"+
-                    "This is a bug I can't fix myself due to restrictions on web browsers!\n"+
-                    "If you have any important save data, you can zip files by right clicking a folder and clicking \"Download (Save to zip)\"."
-                );
-            }
-
-            let currentIndex = 0;
-
-            function processNextFile() {
-                if (currentIndex >= files.length) {
-                    // All files written to memory, now do ONE single syncfs call!
-                    loadingScreen.textContent = "Saving changes to disk...";
-                    
-                    syncFs().then(() => {
-                        loadingScreen.hidden = true;
-                        refreshFileList();
-                        console.log("All files uploaded and synced successfully.");
-                    }).catch((err) => {
-                        loadingScreen.hidden = true;
-                        console.error("Sync error after batch upload:", err);
-                        alert("Error saving files to persistent storage. Storage might be full.");
-                    });
-                    return;
-                }
-
-                var file = files[currentIndex];
-                var fullPath = joinPaths(currentPath, file.name);
-                loadingScreen.textContent = `Uploading "${file.name}" (${currentIndex + 1}/${files.length})...`;
-
-                var reader = new FileReader();
-                reader.onload = function () {
-                    var arrayBuffer = reader.result;
-                    if (!arrayBuffer || arrayBuffer.byteLength === 0) return;
-
-                    var uint8Array = new Uint8Array(arrayBuffer.slice(0));
-
-                    // Ensure parent folders exist so IDBFS metadata doesn't desync
-                    var lastSlash = fullPath.lastIndexOf('/');
-                    if (lastSlash !== -1) {
-                        FS.mkdirTree(fullPath.substring(0, lastSlash));
-                    }
-
-                    FS.writeFile(fullPath, uint8Array);
-                    currentIndex++;
-                    processNextFile();
-                };
-                reader.readAsArrayBuffer(file);
-            }
-
-            processNextFile();
+            uploadFiles(files);
         };
         fileInput.click();
       },
