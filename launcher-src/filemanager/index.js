@@ -5,7 +5,7 @@ if (!window["Module"]) {
 var elements = require("../gp2/elements.js");
 elements.appendElementsFromJSON(document.body, require("./elms.js"));
 var { loadFilesystem } = require("./load.js");
-var { joinPaths, getFileName, getFileExtension } = require("./pathutil.js");
+var { joinPaths, getFileName, getFileExtension, doesMatchPaths } = require("./pathutil.js");
 var fileSizeModule = require("filesize");
 var dialog = require("../dialog.js");
 if (window["Module"]) {
@@ -21,6 +21,17 @@ var fileListContainer = elements.getGPId("fileListContainer");
 var clickDropdownMenu = elements.getGPId("clickDropdownMenu");
 var currentPath = "/addons/userdata";
 var multiSelectList = {};
+
+var unsafePaths = [
+  //Hide these from the user and block access to opening them.
+  "/dev/",
+  "/home/",
+  "/proc/",
+  "/tmp/",
+  "/addons/.srb2kart/", //We already have one directory thats used for main access so there's no reason to have two identical directories.
+];
+
+var filePathClipboard = null;
 
 var IMAGES = require("./images.js");
 
@@ -50,6 +61,25 @@ async function syncFs() {
 function getPathIsDirectory(fullPath) {
   return FS.isDir(FS.stat(fullPath).mode);
 }
+function fsRename(_oldPath,_newPath) {
+  FS.rename(_oldPath,_newPath);
+
+  var oldPath = joinPaths("/",_oldPath); //This just makes sure our path name isn't accidentally different.
+  var newPath = joinPaths("/",_newPath);
+
+  //We also need to change the clipboard if we have it.
+  if (filePathClipboard) {
+    if (filePathClipboard[oldPath]) {
+      filePathClipboard[oldPath] = false;
+      filePathClipboard[newPath] = true;
+    }
+  }
+
+  if (multiSelectList[oldPath]) {
+    multiSelectList[oldPath] = false;
+    multiSelectList[newPath] = true;
+  }
+}
 
 var dragFile = null;
 var dragFileTarget = null;
@@ -68,12 +98,12 @@ async function handleMoveDrag(dragFile, dragFileTarget) {
     if (isMulti) {
       for (var file of multiFiles) {
         loadingScreen.textContent = `Moving ${getFileName(file)} to ${getFileName(file)}...`;
-        FS.rename(file, joinPaths(dragFileTarget.fullPath, getFileName(file)));
+        fsRename(file, joinPaths(dragFileTarget.fullPath, getFileName(file)));
         await syncFs();
       }
     } else {
       loadingScreen.textContent = `Moving ${dragFile.fileName} to ${dragFileTarget.fileName}...`;
-      FS.rename(dragFile.fullPath, joinPaths(dragFileTarget.fullPath, dragFile.fileName));
+      fsRename(dragFile.fullPath, joinPaths(dragFileTarget.fullPath, dragFile.fileName));
       await syncFs();
     }
     loadingScreen.hidden = true;
@@ -133,8 +163,16 @@ function getFileItemEventHandlers(fullPath,fileName,stat,isDir) {
 }
 
 var filesCurrentlyDisplayed = [];
+var _previousWorkingPath = null;
 
 function refreshFileList(keepSelectList = false) {
+
+  if (doesMatchPaths(currentPath, unsafePaths) && _previousWorkingPath) {
+    dialog.alert(`Can't view "${currentPath}".`);
+    currentPath = _previousWorkingPath;
+    //return refreshFileList(keepSelectList);
+  }
+
   if (!keepSelectList) {
     multiSelectList = {};
   }
@@ -187,6 +225,12 @@ function refreshFileList(keepSelectList = false) {
           })
           .map((fileName) => {
             var fullPath = joinPaths(currentPath, fileName);
+            var isUnsafePath = doesMatchPaths(fullPath, unsafePaths);
+
+            if (isUnsafePath) {
+              return {element:"div",hidden:true};
+            }
+            
             var isDir = getPathIsDirectory(fullPath);
             var stat = FS.stat(fullPath);
             filesCurrentlyDisplayed.push(fullPath);
@@ -292,6 +336,7 @@ function refreshFileList(keepSelectList = false) {
       ]),
   );
   filePathInput.value = currentPath;
+  _previousWorkingPath = currentPath;
 }
 
 function selectAll(noUnselect) {
@@ -318,9 +363,22 @@ function unselectAll() {
 }
 
 document.addEventListener("keydown", function (e) {
-  if (e.ctrlKey && e.key.toLowerCase() == "a" && !(document.activeElement && document.activeElement.tagName == "INPUT")) {
+  var isInputActive = document.activeElement && document.activeElement.tagName == "INPUT";
+  if (e.ctrlKey && e.key.toLowerCase() == "a" && !isInputActive) {
     e.preventDefault();
     selectAll();
+  }
+  if (e.ctrlKey && e.key.toLowerCase() == "c" && !isInputActive) {
+    e.preventDefault();
+    copyFilesToClipboard();
+  }
+  if (e.ctrlKey && e.key.toLowerCase() == "v" && !isInputActive) {
+    e.preventDefault();
+    pasteFilesToDest(currentPath);
+  }
+  if (e.ctrlKey && e.key.toLowerCase() == "m" && !isInputActive) {
+    e.preventDefault();
+    moveFilesToDest(currentPath);
   }
 });
 window.addEventListener("click", function () {
@@ -334,6 +392,34 @@ function showDropdownMenu(e) {
   clickDropdownMenu.style.left = e.clientX + "px";
   clickDropdownMenu.hidden = false;
   elements.setInnerJSON(clickDropdownMenu, [
+    {
+      element: "div",
+      className: "dropdownItem",
+      hidden: filePathClipboard ? (Object.keys(filePathClipboard).length < 1) : true,
+      children: [
+          {
+            element: "span",
+            textContent: `Paste from clipboard (CTRL+V)`,
+          }
+        ],
+      onclick: function () {
+        pasteFilesToDest(currentPath);
+      },
+    },
+    {
+      element: "div",
+      className: "dropdownItem",
+      hidden: filePathClipboard ? (Object.keys(filePathClipboard).length < 1) : true,
+      children: [
+          {
+            element: "span",
+            textContent: `Move files from clipboard (CTRL+V)`,
+          }
+        ],
+      onclick: function () {
+        moveFilesToDest(currentPath);
+      },
+    },
     {
       element: "div",
       className: "dropdownItem",
@@ -495,10 +581,7 @@ function showDropdownMenu(e) {
 
 function showFileDropdownMenu(e, fullPath, isDir, fileName) {
   var isMulti = Object.keys(multiSelectList).length > 0;
-  var multiFiles = [];
-  for (var file of Object.keys(multiSelectList)) {
-    multiFiles.push(file);
-  }
+  var multiFiles = Object.keys(multiSelectList);
   clickDropdownMenu.style.top = e.clientY + "px";
   clickDropdownMenu.style.left = e.clientX + "px";
   clickDropdownMenu.hidden = false;
@@ -544,22 +627,25 @@ function showFileDropdownMenu(e, fullPath, isDir, fileName) {
                         for (var i = 0; i < items.length; i++) {
                           var itemPath = joinPaths(path, items[i]);
                           var stat = FS.stat(itemPath);
-                          if (FS.isDir(stat.mode)) {
-                            removeDirContents(itemPath);
-                            FS.rmdir(itemPath);
-                          } else {
-                            FS.unlink(itemPath);
-                          }
+                          try{
+                            if (FS.isDir(stat.mode)) {
+                              removeDirContents(itemPath);
+                              FS.rmdir(itemPath);
+                            } else {
+                              FS.unlink(itemPath);
+                            }
+                          }catch(e){}
                         }
                       }
-                      removeDirContents(fullPath);
-                      FS.rmdir(fullPath);
+                      removeDirContents(file);
+                      FS.rmdir(file);
                     } else {
-                      FS.unlink(fullPath);
+                      FS.unlink(file);
                     }
                     refreshFileList();
                     await syncFs();
                   } catch (e) {
+                    console.error(file,e);
                     dialog.alert("Failed to delete file/folder: " + e);
                   }
                 }
@@ -567,6 +653,19 @@ function showFileDropdownMenu(e, fullPath, isDir, fileName) {
               }
               
             });
+        },
+      },
+      {
+        element: "div",
+        className: "dropdownItem",
+        children: [
+          {
+            element: "span",
+            textContent: `Copy ${multiFiles.length} files to clipboard (CTRL+C)`,
+          }
+        ],
+        onclick: function () {
+          copyFilesToClipboard();
         },
       },
     ]);
@@ -711,7 +810,7 @@ function showFileDropdownMenu(e, fullPath, isDir, fileName) {
                 loadingScreen.textContent =
                   'Renaming "' + fileName + '" to "' + newName + '"...';
                 var newFullPath = joinPaths(currentPath, newName);
-                FS.rename(fullPath, newFullPath);
+                fsRename(fullPath, newFullPath);
                 refreshFileList();
                 await syncFs();
               } catch (e) {
@@ -720,6 +819,19 @@ function showFileDropdownMenu(e, fullPath, isDir, fileName) {
               loadingScreen.hidden = true;
             }
           });
+      },
+    },
+    {
+      element: "div",
+      className: "dropdownItem",
+      children: [
+        {
+          element: "span",
+          textContent: `Copy file to clipboard`,
+        }
+      ],
+      onclick: function () {
+        copyFileToClipboard(joinPaths(fullPath));
       },
     },
     {
@@ -852,6 +964,82 @@ filePathInput.addEventListener("change", function () {
     dialog.alert("File path wasn't found or had an error");
   }
 });
+
+function copyFileToClipboard(filepath) {
+  filePathClipboard = {};
+  filePathClipboard[filepath] = true;
+}
+
+function copyFilesToClipboard() {
+  if (Object.keys(multiSelectList).length < 1) { //Don't reset or try to copy if we don't even have any files selected.
+    return;
+  }
+  filePathClipboard = {}; //the clipboard gets reset instead of holding previous data.
+  for (var file of Object.keys(multiSelectList)) {
+    filePathClipboard[file] = true;
+  }
+}
+
+function copyFilesInFolder(source, dest) {
+  function copy(path) {
+    var files = FS.readdir(joinPaths(source, path)).slice(2);
+    for (var fileName of files) {
+      var sourcePath = joinPaths(source, path, fileName);
+      var targetPath = joinPaths(dest, path, fileName);
+      if (getPathIsDirectory(sourcePath)) {
+        try{FS.mkdir(targetPath);}catch(e){}
+        copy(joinPaths(path,fileName));
+      } else {
+        try{
+          var data = FS.readFile(sourcePath);        
+          FS.writeFile(targetPath, data);
+        }catch(e){}
+      }
+    }
+  }
+
+  copy(".");
+}
+
+async function pasteFilesToDest(dest) {
+  loadingScreen.hidden = false;
+  loadingScreen.textContent = "Copying "+Object.keys(filePathClipboard).length+" files...";
+  for (var targetFile of Object.keys(filePathClipboard)) {
+    try{
+      var name = getFileName(targetFile);
+      if (getPathIsDirectory(targetFile)) {
+        try{FS.mkdir(joinPaths(dest,name));}catch(e){}
+        copyFilesInFolder(targetFile, joinPaths(dest,name));
+      } else {
+        var data = FS.readFile(targetFile);        
+        FS.writeFile(joinPaths(dest,name), data);
+      }
+    }catch(e){
+      console.error(e);
+      //window.alert(e);
+    }
+  }
+  await syncFs();
+  loadingScreen.hidden = true;
+  refreshFileList();
+}
+
+async function moveFilesToDest(dest) {
+  loadingScreen.hidden = false;
+  loadingScreen.textContent = "Moving "+Object.keys(filePathClipboard).length+" files...";
+  for (var targetFile of Object.keys(filePathClipboard)) {
+    try{
+      var name = getFileName(targetFile);
+      fsRename(targetFile, joinPaths(dest,name));
+    }catch(e){
+      console.error(e);
+      //window.alert(e);
+    }
+  }
+  await syncFs();
+  loadingScreen.hidden = true;
+  refreshFileList();
+}
 
 (async function () {
   try {

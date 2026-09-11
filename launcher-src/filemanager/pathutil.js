@@ -59,8 +59,30 @@ function getFileExtension(path) {
   return extension;
 }
 
+function doesMatchPaths(path,pathArray) {
+  var patharr = _getPathArray(joinPaths(path));
+
+  for (var path2 of pathArray) {
+    var path2arr = _getPathArray(joinPaths(path2));
+    var match = 0;
+    var i = 0;
+    while (i < path2arr.length) {
+      if (patharr[i] == path2arr[i]) {
+        match += 1;
+      }
+      i += 1;
+    }
+    if (match == path2arr.length) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 module.exports = {
   joinPaths,
   getFileName,
-  getFileExtension
+  getFileExtension,
+  doesMatchPaths
 };
