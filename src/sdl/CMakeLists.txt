@@ -163,7 +163,11 @@ if(${SDL2_FOUND})
 	endif()
 
 	add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32 ${SRB2_SDL2_TOTAL_SOURCES})
-	set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME ${SRB2_SDL2_EXE_NAME})
+	if(EMSCRIPTEN)
+		set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME srb2kart.js)
+	else()
+		set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME ${SRB2_SDL2_EXE_NAME})
+	endif()
 
 	if(${CMAKE_SYSTEM} MATCHES Darwin)
 		find_library(CORE_FOUNDATION_LIBRARY "CoreFoundation")

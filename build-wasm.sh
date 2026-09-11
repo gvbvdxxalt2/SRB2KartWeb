@@ -8,7 +8,7 @@ ROOT_DIR=$(pwd)
 EM_TOOLCHAIN="$ROOT_DIR/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
 
 # Clean old build cache completely
-rm -rf build-wasm
+# rm -rf build-wasm
 mkdir -p build-wasm
 cd build-wasm
 
@@ -40,8 +40,3 @@ emcmake cmake .. \
 emmake make -j1
 
 emmake make -j$(nproc)
-
-cd bin
-if [ -f "srb2kart" ] && [ ! -f "srb2kart.js" ]; then
-    mv srb2kart srb2kart.js
-fi
