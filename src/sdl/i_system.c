@@ -4021,3 +4021,12 @@ const CPUInfoFlags *I_CPUInfo(void)
 // note CPUAFFINITY code used to reside here
 void I_RegisterSysCommands(void) {}
 #endif
+
+int I_OpenURL(const char *url)
+{
+#if SDL_VERSION_ATLEAST(2,0,14)
+	return SDL_OpenURL(va("%s", url));
+#else
+	return -1;
+#endif
+}

@@ -331,6 +331,9 @@ static void M_Addons(INT32 choice);
 static void M_AddonsOptions(INT32 choice);
 static patch_t *addonsp[NUM_EXT+5];
 
+menu_t OP_WebOptionsDef;
+static void M_KartWebReportIssue(INT32 choice);
+
 #define numaddonsshown 4
 
 // Replay hut
@@ -1101,6 +1104,8 @@ static menuitem_t OP_MainMenu[] =
 
 	{IT_CALL|IT_STRING,			NULL, "Tricks & Secrets (F1)",	M_Manual,					120},
 	{IT_CALL|IT_STRING,			NULL, "Play Credits",			M_Credits,					130},
+
+	{IT_SUBMENU|IT_STRING,		NULL, "Web Options...",		&OP_WebOptionsDef,			140},
 };
 
 static menuitem_t OP_ControlsMenu[] =
@@ -1626,6 +1631,12 @@ static menuitem_t OP_MonitorToggleMenu[] =
 #endif
 };
 
+static menuitem_t OP_WebOptionsMenu[] =
+{
+	{IT_HEADER|IT_STRING, NULL, "About", NULL, 10},
+	{IT_STRING | IT_CALL, NULL, "Report an issue (Web)",	M_KartWebReportIssue,	 20},
+};
+
 // ==========================================================================
 // ALL MENU DEFINITIONS GO HERE
 // ==========================================================================
@@ -2129,6 +2140,9 @@ menu_t OP_AddonsOptionsDef = DEFAULTMENUSTYLE("M_ADDONS", OP_AddonsOptionsMenu, 
 menu_t OP_DiscordOptionsDef = DEFAULTMENUSTYLE(NULL, OP_DiscordOptionsMenu, &OP_DataOptionsDef, 30, 30);
 #endif
 menu_t OP_EraseDataDef = DEFAULTMENUSTYLE("M_DATA", OP_EraseDataMenu, &OP_DataOptionsDef, 30, 30);
+
+menu_t OP_WebOptionsDef = DEFAULTMENUSTYLE(NULL, OP_WebOptionsMenu, &OP_MainDef, 30, 30);
+
 
 // ==========================================================================
 // CVAR ONCHANGE EVENTS GO HERE
@@ -10138,6 +10152,15 @@ static void M_ScreenshotOptions(INT32 choice)
 	Moviemode_mode_Onchange();
 
 	M_SetupNextMenu(&OP_ScreenshotOptionsDef);
+}
+
+static void M_KartWebReportIssue(INT32 choice)
+{
+	(void)choice;
+	int url = I_OpenURL(ISSUES_WEB);
+
+	if (url == -1) // SDL_OpenURL unsupported or failed
+		M_StartMessage(M_GetText("Open the following in your web browser:\n\n" ISSUES_WEB" \n\n(Press a key)\n"), NULL, MM_NOTHING);
 }
 
 // =============

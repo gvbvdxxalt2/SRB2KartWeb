@@ -370,3 +370,5 @@ const char *I_ClipboardPaste(void);
 void I_RegisterSysCommands(void);
 
 #endif
+
+int I_OpenURL(const char *url);
